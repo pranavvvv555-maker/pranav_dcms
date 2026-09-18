@@ -1,0 +1,243 @@
+@page "/grade-sheet"
+@rendermode InteractiveServer
+@inject AssessmentService AssessmentSvc
+@inject CourseService CourseSvc
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>DCMS — Grade Sheet & Marks Register</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Academic Records & Transcripts</span>
+            <MudText Typo="Typo.h4">Grade Sheet & Marks Register</MudText>
+            <MudText Typo="Typo.body2">Consolidated internal evaluation scores, aggregate percentages, and university letter grades.</MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Href="/assessments" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowBack">
+                Assessments
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">
+                Export CSV
+            </MudButton>
+        </MudStack>
+    </section>
+
+    <!-- Course Selector & Search -->
+    <div class="d-flex flex-wrap gap-3 align-center justify-space-between mb-4">
+        <div style="min-width: 320px;">
+            <MudSelect T="int" Value="_selectedCourseId" ValueChanged="OnCourseChanged" Label="Select Course" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                @foreach (var c in _courses)
+                {
+                    <MudSelectItem Value="@c.Id">@c.CourseCode - @c.CourseName</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+        <div style="min-width: 260px;">
+            <MudTextField @bind-Value="_searchQuery" Placeholder="Search by name or roll no..."
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Immediate="true" />
+        </div>
+    </div>
+
+    <!-- Course Performance Summary -->
+    @if (_matrix.Assessments.Any())
+    {
+        var totalStudents = _filteredRows.Count;
+        var classAvg = _filteredRows.Any() ? _filteredRows.Average(r => r.Percentage) : 0;
+        var highestScore = _filteredRows.Any() ? _filteredRows.Max(r => r.Percentage) : 0;
+        var passCount = _filteredRows.Count(r => r.Percentage >= 40);
+
+        <MudGrid Class="mb-4">
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="0" Class="metric-card">
+                    <span class="metric-card__label">Enrolled Students</span>
+                    <strong class="metric-card__value">@totalStudents</strong>
+                    <small class="metric-card__hint">In this semester</small>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="0" Class="metric-card">
+                    <span class="metric-card__label">Class Average</span>
+                    <strong class="metric-card__value" style="color: #2563eb;">@classAvg.ToString("0.1")%</strong>
+                    <small class="metric-card__hint">Overall aggregate</small>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="0" Class="metric-card">
+                    <span class="metric-card__label">Highest Aggregate</span>
+                    <strong class="metric-card__value" style="color: #8b5cf6;">@highestScore.ToString("0.1")%</strong>
+                    <small class="metric-card__hint">Course topper</small>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudPaper Elevation="0" Class="metric-card">
+                    <span class="metric-card__label">Passing Students</span>
+                    <strong class="metric-card__value" style="color: #16a34a;">@passCount / @totalStudents</strong>
+                    <small class="metric-card__hint">>= 40% pass mark</small>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    }
+
+    <!-- Grade Matrix Table -->
+    @if (!_matrix.Assessments.Any())
+    {
+        <MudPaper Elevation="0" Class="pa-8 text-center" Style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;">
+            <MudIcon Icon="@Icons.Material.Filled.AssignmentLate" Style="font-size: 3rem; color: #94a3b8;" Class="mb-3" />
+            <MudText Typo="Typo.h6" Style="color: #334155;">No assessments recorded for this course yet</MudText>
+            <MudText Typo="Typo.body2" Style="color: #64748b;" Class="mb-4">Create unit tests or practical exams from the Assessments page.</MudText>
+            <MudButton Href="/assessments" Variant="Variant.Filled" Class="btn-gradient-primary">Go to Assessments</MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Style="border: 1px solid #e2e8f0; border-radius: 12px; overflow-x: auto;">
+            <table class="simple-table w-100" style="font-size: 0.88rem; white-space: nowrap;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 700; color: #334155;">Roll No</th>
+                        <th style="padding: 12px 16px; text-align: left; font-weight: 700; color: #334155;">Student Name</th>
+                        @foreach (var a in _matrix.Assessments)
+                        {
+                            <th style="padding: 12px 16px; text-align: center; font-weight: 700; color: #334155;">
+                                <div>@a.Title</div>
+                                <small style="color: #64748b; font-weight: 500;">(Max @a.MaxMarks.ToString("0"))</small>
+                            </th>
+                        }
+                        <th style="padding: 12px 16px; text-align: center; font-weight: 700; color: #0f172a;">Total Marks</th>
+                        <th style="padding: 12px 16px; text-align: center; font-weight: 700; color: #0f172a;">Percentage</th>
+                        <th style="padding: 12px 16px; text-align: center; font-weight: 700; color: #0f172a;">Grade</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _filteredRows)
+                    {
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 10px 16px; font-weight: 600; color: #334155;">@r.StudentCode</td>
+                            <td style="padding: 10px 16px; font-weight: 600; color: #0f172a;">@r.FullName</td>
+                            @foreach (var a in _matrix.Assessments)
+                            {
+                                var score = r.AssessmentScores.ContainsKey(a.Id) ? r.AssessmentScores[a.Id] : null;
+                                <td style="padding: 10px 16px; text-align: center;">
+                                    @if (score.HasValue)
+                                    {
+                                        <span style="font-weight: 600; color: @(score.Value < (a.MaxMarks * 0.4m) ? "#dc2626" : "#334155");">
+                                            @score.Value.ToString("0.#")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color: #94a3b8;">—</span>
+                                    }
+                                </td>
+                            }
+                            <td style="padding: 10px 16px; text-align: center; font-weight: 700; color: #0f172a;">
+                                @r.TotalObtained.ToString("0.#") / @r.TotalMaxMarks.ToString("0.#")
+                            </td>
+                            <td style="padding: 10px 16px; text-align: center; font-weight: 700; color: #2563eb;">
+                                @r.Percentage.ToString("0.1")%
+                            </td>
+                            <td style="padding: 10px 16px; text-align: center;">
+                                <span class="status-pill @GetGradePillClass(r.Grade)" style="font-size: 0.75rem; font-weight: 700;">
+                                    @r.Grade
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private List<Course> _courses = new();
+    private int _selectedCourseId;
+    private CourseGradeMatrix _matrix = new();
+    private string _searchQuery = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _courses = await CourseSvc.GetAllAsync();
+        if (_courses.Any())
+        {
+            _selectedCourseId = _courses.First().Id;
+            await LoadMatrix();
+        }
+    }
+
+    private async Task OnCourseChanged(int courseId)
+    {
+        _selectedCourseId = courseId;
+        await LoadMatrix();
+    }
+
+    private async Task LoadMatrix()
+    {
+        if (_selectedCourseId > 0)
+        {
+            _matrix = await AssessmentSvc.GetCourseGradeMatrixAsync(_selectedCourseId);
+        }
+    }
+
+    private List<StudentGradeRow> _filteredRows
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_searchQuery))
+                return _matrix.StudentRows;
+
+            return _matrix.StudentRows
+                .Where(r => r.FullName.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ||
+                            r.StudentCode.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private async Task ExportCsv()
+    {
+        if (!_matrix.Assessments.Any() || !_matrix.StudentRows.Any())
+        {
+            Snackbar.Add("No data available to export.", Severity.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        // Header row
+        sb.Append("Roll No,Student Name");
+        foreach (var a in _matrix.Assessments)
+        {
+            sb.Append($",\"{a.Title} (Max {a.MaxMarks:0})\"");
+        }
+        sb.AppendLine(",Total Obtained,Total Max,Percentage,Grade");
+
+        // Data rows
+        foreach (var r in _filteredRows)
+        {
+            sb.Append($"\"{r.StudentCode}\",\"{r.FullName}\"");
+            foreach (var a in _matrix.Assessments)
+            {
+                var score = r.AssessmentScores.ContainsKey(a.Id) ? r.AssessmentScores[a.Id] : null;
+                sb.Append(score.HasValue ? $",{score.Value:0.#}" : ",—");
+            }
+            sb.AppendLine($",{r.TotalObtained:0.#},{r.TotalMaxMarks:0.#},{r.Percentage:0.1}%,\"{r.Grade}\"");
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{_matrix.Course?.CourseCode ?? "Course"}_GradeSheet_{DateTime.Today:yyyyMMdd}.csv";
+
+        await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv;charset=utf-8", base64);
+        Snackbar.Add("Grade sheet CSV downloaded successfully.", Severity.Success);
+    }
+
+    private string GetGradePillClass(string grade)
+    {
+        if (grade.StartsWith("O") || grade.StartsWith("A+")) return "status-pill--active";
+        if (grade.StartsWith("A") || grade.StartsWith("B+")) return "status-pill--pending";
+        if (grade.StartsWith("F")) return "status-pill--draft";
+        return "status-pill--pending";
+    }
+}

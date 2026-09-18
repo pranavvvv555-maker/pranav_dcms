@@ -1,0 +1,188 @@
+@page "/"
+@rendermode InteractiveServer
+@inject DashboardService DashboardSvc
+@inject FacultyService FacultySvc
+@inject AssessmentService AssessmentSvc
+
+<PageTitle>DCMS — Academic Portal</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="welcome-panel">
+        <div class="welcome-panel__content">
+            <span class="premium-eyebrow">MIT-WPU × NIRVAA · Academic Management Desk</span>
+            <MudText Typo="Typo.h3" Class="welcome-panel__title">Academic & Delivery Portal</MudText>
+            <MudText Typo="Typo.body1" Class="welcome-panel__text">
+                Manage the weekend timetable, log classroom delivery, and evaluate student internal assessments.
+            </MudText>
+            <MudStack Row="true" Spacing="2" Class="welcome-panel__actions">
+                <MudButton Href="/weekend" Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.CalendarMonth">
+                    Open Weekend Desk
+                </MudButton>
+                <MudButton Href="/assessments" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.AssignmentTurnedIn">
+                    Assessments & Marks
+                </MudButton>
+            </MudStack>
+            <div class="welcome-panel__promise">
+                <MudIcon Icon="@Icons.Material.Filled.Verified" Size="Size.Small" />
+                <span>Track student evaluations, practical experiments, and university grades in one place.</span>
+            </div>
+        </div>
+        <div class="welcome-panel__side" aria-label="MIT-WPU and NIRVAA partnership">
+            <div class="partner-lockup">
+                <img src="images/mit-wpu.jpg" alt="MIT-WPU" />
+                <span>×</span>
+                <img src="images/nirvaa.jpg" alt="NIRVAA Solutions" />
+            </div>
+            <div class="pay-preview-card">
+                <span>Assessments</span>
+                <strong>@_stats.TotalAssessments Active</strong>
+                <small>Class average @_stats.AverageScorePercent%</small>
+            </div>
+        </div>
+    </section>
+
+    @if (_unconfiguredRateCount > 0)
+    {
+        <section class="setup-callout">
+            <div class="setup-callout__icon">
+                <MudIcon Icon="@Icons.Material.Filled.Tune" />
+            </div>
+            <div class="setup-callout__copy">
+                <span>One quick setup step</span>
+                <MudText Typo="Typo.subtitle1">Set fees for @_unconfiguredRateCount professor(s) before their classes can be paid.</MudText>
+                <MudText Typo="Typo.body2">Add a lecture fee and practical fee for each professor—nothing else is needed.</MudText>
+            </div>
+            <MudButton Href="/faculty" Variant="Variant.Filled" Class="btn-gradient-primary" EndIcon="@Icons.Material.Filled.ArrowForward">
+                Set fees
+            </MudButton>
+        </section>
+    }
+
+    <section class="workflow-section">
+        <div class="section-heading">
+            <div>
+                <span class="premium-eyebrow">Your simple workflow</span>
+                <MudText Typo="Typo.h5">Three steps. Clear payments.</MudText>
+            </div>
+            <MudText Typo="Typo.body2">Everything you need is right here.</MudText>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Class="flow-card">
+                    <div class="flow-card__number">01</div>
+                    <div class="flow-card__icon flow-card__icon--gold"><MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" /></div>
+                    <MudText Typo="Typo.h6">Set class fees</MudText>
+                    <MudText Typo="Typo.body2">Choose a fee for one lecture and one practical for each professor.</MudText>
+                    <MudButton Href="/faculty" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">Set fees</MudButton>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Class="flow-card">
+                    <div class="flow-card__number">02</div>
+                    <div class="flow-card__icon flow-card__icon--blue"><MudIcon Icon="@Icons.Material.Filled.AddTask" /></div>
+                    <MudText Typo="Typo.h6">Use Weekend Desk</MudText>
+                    <MudText Typo="Typo.body2">Prepare the timetable, update any substitute professor, then confirm the classes that were conducted.</MudText>
+                    <MudButton Href="/weekend" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">Open Weekend Desk</MudButton>
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="0" Class="flow-card">
+                    <div class="flow-card__number">03</div>
+                    <div class="flow-card__icon flow-card__icon--blue"><MudIcon Icon="@Icons.Material.Filled.AssignmentTurnedIn" /></div>
+                    <MudText Typo="Typo.h6">Internal Assessments</MudText>
+                    <MudText Typo="Typo.body2">Record unit tests, lab practicals, assignments, and evaluate internal student grades.</MudText>
+                    <MudButton Href="/assessments" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">Open Assessments</MudButton>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </section>
+
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" sm="6">
+            <MudPaper Elevation="0" Class="summary-card summary-card--classes">
+                <div>
+                    <span>Classes logged</span>
+                    <strong>@_totalClasses</strong>
+                    <small>This academic month</small>
+                </div>
+                <div class="summary-card__icon"><MudIcon Icon="@Icons.Material.Filled.MenuBook" /></div>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudPaper Elevation="0" Class="summary-card summary-card--payout">
+                <div>
+                    <span>Evaluations conducted</span>
+                    <strong>@_stats.EvaluatedAssessments of @_stats.TotalAssessments</strong>
+                    <small>Pass rate @_stats.PassRatePercent%</small>
+                </div>
+                <div class="summary-card__icon"><MudIcon Icon="@Icons.Material.Filled.Grade" /></div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Elevation="0" Class="recent-classes-card">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+            <div>
+                <span class="premium-eyebrow">Recent activity</span>
+                <MudText Typo="Typo.h6">Latest classes</MudText>
+            </div>
+            <MudButton Href="/weekend" Variant="Variant.Text" Color="Color.Primary" EndIcon="@Icons.Material.Filled.ArrowForward">
+                Open Weekend Desk
+            </MudButton>
+        </MudStack>
+
+        @if (_recentSessions.Any())
+        {
+            <div class="simple-table">
+                <MudDataGrid Items="@_recentSessions" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <PropertyColumn Property="x => x.Date" Title="Date" Format="dd MMM" />
+                        <PropertyColumn Property="x => x.Faculty.FullName" Title="Professor" />
+                        <PropertyColumn Property="x => x.Course.CourseName" Title="Subject" />
+                        <TemplateColumn Title="Class type">
+                            <CellTemplate>
+                                <span class="type-pill">@context.Item.SessionType</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+        }
+        else
+        {
+            <div class="simple-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.AutoStories" />
+                <div>
+                    <MudText Typo="Typo.subtitle1">No classes logged yet</MudText>
+                    <MudText Typo="Typo.body2">Start by preparing the first day in Weekend Desk.</MudText>
+                </div>
+                <MudButton Href="/weekend" Variant="Variant.Filled" Class="btn-gradient-primary">Open Weekend Desk</MudButton>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private int _totalClasses;
+    private decimal _paymentDue;
+    private int _unconfiguredRateCount;
+    private List<Session> _recentSessions = new();
+    private AssessmentOverallStats _stats = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _totalClasses = await DashboardSvc.GetTotalClassesThisMonthAsync();
+        _paymentDue = await DashboardSvc.GetTotalPaymentDueThisMonthAsync();
+        _recentSessions = await DashboardSvc.GetRecentSessionsAsync();
+        _stats = await AssessmentSvc.GetOverallStatsAsync();
+
+        var allFaculty = await FacultySvc.GetAllAsync();
+        foreach (var faculty in allFaculty.Where(f => f.IsActive))
+        {
+            var rates = await FacultySvc.GetCurrentClassRatesAsync(faculty.Id);
+            if (rates is null || (rates.LectureRateINR <= 0 && rates.PracticalRateINR <= 0))
+                _unconfiguredRateCount++;
+        }
+    }
+}

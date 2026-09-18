@@ -1,0 +1,477 @@
+@page "/assessments"
+@rendermode InteractiveServer
+@inject AssessmentService AssessmentSvc
+@inject CourseService CourseSvc
+@inject ISnackbar Snackbar
+
+<PageTitle>DCMS — Internal Assessments & Marks</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Academic Evaluation & Grading</span>
+            <MudText Typo="Typo.h4">Internal Assessments</MudText>
+            <MudText Typo="Typo.body2">Record unit tests, lab practicals, assignments, and calculate student internal marks.</MudText>
+        </div>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Href="/grade-sheet" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Leaderboard">
+                Grade Sheet
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                New Assessment
+            </MudButton>
+        </MudStack>
+    </section>
+
+    <!-- Key Performance Metrics -->
+    <MudGrid Class="mb-6">
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card">
+                <span class="metric-card__label">Total Assessments</span>
+                <strong class="metric-card__value">@_stats.TotalAssessments</strong>
+                <small class="metric-card__hint">Unit tests, labs & tasks</small>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card">
+                <span class="metric-card__label">Evaluated</span>
+                <strong class="metric-card__value">@_stats.EvaluatedAssessments</strong>
+                <small class="metric-card__hint">With student marks entered</small>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card">
+                <span class="metric-card__label">Class Average</span>
+                <strong class="metric-card__value" style="color: #2563eb;">@_stats.AverageScorePercent%</strong>
+                <small class="metric-card__hint">Across all evaluations</small>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card">
+                <span class="metric-card__label">Pass Rate</span>
+                <strong class="metric-card__value" style="color: #16a34a;">@_stats.PassRatePercent%</strong>
+                <small class="metric-card__hint">>= 40% pass threshold</small>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Filter Bar -->
+    <div class="d-flex flex-wrap gap-3 align-center mb-4">
+        <div style="min-width: 260px;">
+            <MudSelect T="int" Value="_selectedCourseId" ValueChanged="OnCourseFilterChanged" Label="Filter by Course" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudSelectItem Value="0">All Courses</MudSelectItem>
+                @foreach (var c in _courses)
+                {
+                    <MudSelectItem Value="@c.Id">@c.CourseCode - @c.CourseName</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+        <div style="min-width: 200px;">
+            <MudSelect T="string" Value="_selectedType" ValueChanged="OnTypeFilterChanged" Label="Assessment Type" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                <MudSelectItem Value="@("All")">All Types</MudSelectItem>
+                <MudSelectItem Value="@("Unit Test")">Unit Test</MudSelectItem>
+                <MudSelectItem Value="@("Lab Practical")">Lab Practical</MudSelectItem>
+                <MudSelectItem Value="@("Assignment")">Assignment</MudSelectItem>
+                <MudSelectItem Value="@("Mid-Term")">Mid-Term Exam</MudSelectItem>
+                <MudSelectItem Value="@("Project Evaluation")">Project Evaluation</MudSelectItem>
+            </MudSelect>
+        </div>
+    </div>
+
+    <!-- Assessments Cards -->
+    @if (!_assessments.Any())
+    {
+        <MudPaper Elevation="0" Class="pa-8 text-center" Style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px;">
+            <MudIcon Icon="@Icons.Material.Filled.AssignmentLate" Style="font-size: 3rem; color: #94a3b8;" Class="mb-3" />
+            <MudText Typo="Typo.h6" Style="color: #334155;">No assessments found</MudText>
+            <MudText Typo="Typo.body2" Style="color: #64748b;" Class="mb-4">Click below to create your first unit test or lab practical evaluation.</MudText>
+            <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+                Create Assessment
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudGrid>
+            @foreach (var a in _assessments)
+            {
+                var gradedCount = a.Marks.Count(m => m.MarksObtained.HasValue || m.IsAbsent);
+                var totalCount = a.Marks.Count;
+                var avgScore = a.Marks.Where(m => m.MarksObtained.HasValue && !m.IsAbsent).Select(m => m.MarksObtained!.Value).DefaultIfEmpty(0).Average();
+                var avgPct = a.MaxMarks > 0 ? (avgScore / a.MaxMarks) * 100 : 0;
+
+                <MudItem xs="12" md="6">
+                    <MudPaper Elevation="0" Class="modern-assessment-card pa-5 d-flex flex-column justify-space-between h-100">
+                        <div>
+                            <div class="d-flex justify-space-between align-center mb-2">
+                                <span class="badge badge--neutral" style="font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    @a.Course?.CourseCode
+                                </span>
+                                <span class="badge @GetTypeBadgeClass(a.Type)" style="font-size: 0.75rem; font-weight: 600;">
+                                    @a.Type
+                                </span>
+                            </div>
+
+                            <MudText Typo="Typo.h6" Style="font-size: 1.1rem; font-weight: 700; color: #0F172A; line-height: 1.3;" Class="mb-1">
+                                @a.Title
+                            </MudText>
+                            <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 500;" Class="d-block mb-3">
+                                @a.Course?.CourseName
+                            </MudText>
+
+                            @if (!string.IsNullOrWhiteSpace(a.Description))
+                            {
+                                <MudText Typo="Typo.body2" Style="color: #475569; font-size: 0.85rem;" Class="mb-3">
+                                    @a.Description
+                                </MudText>
+                            }
+
+                            <div class="d-flex flex-wrap gap-2 mb-4">
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 8px; background: #F8FAFC; border: 1px solid #E2E8F0; font-size: 0.78rem; color: #475569;">
+                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="font-size: 0.9rem; color: #64748B;" />
+                                    <strong>@a.AssessmentDate.ToString("dd MMM yyyy")</strong>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 8px; background: #EFF6FF; border: 1px solid #DBEAFE; font-size: 0.78rem; color: #1D4ED8;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Grade" Size="Size.Small" Style="font-size: 0.9rem; color: #2563EB;" />
+                                    Max: <strong>@a.MaxMarks.ToString("0") marks</strong>
+                                </span>
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 8px; background: #F5F3FF; border: 1px solid #DDD6FE; font-size: 0.78rem; color: #6D28D9;">
+                                    <MudIcon Icon="@Icons.Material.Filled.PieChart" Size="Size.Small" Style="font-size: 0.9rem; color: #7C3AED;" />
+                                    Weight: <strong>@a.WeightagePercent.ToString("0")%</strong>
+                                </span>
+                            </div>
+
+                            <!-- Grading Progress Bar -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-space-between align-center mb-1" style="font-size: 0.8rem;">
+                                    <span style="color: #64748B;">Graded: <strong style="color: #0F172A;">@gradedCount / @totalCount students</strong></span>
+                                    @if (gradedCount > 0)
+                                    {
+                                        <span style="color: #2563EB; font-weight: 700;">Avg: @avgScore.ToString("0.1") / @a.MaxMarks.ToString("0") (@avgPct.ToString("0")%)</span>
+                                    }
+                                </div>
+                                <MudProgressLinear Color="@(gradedCount == totalCount && totalCount > 0 ? Color.Success : Color.Primary)"
+                                                   Value="@(totalCount > 0 ? ((double)gradedCount / totalCount) * 100 : 0)"
+                                                   Rounded="true" Size="Size.Small" />
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-space-between align-center pt-3" style="border-top: 1px solid #F1F5F9;">
+                            <span class="status-pill @(a.Status == "Evaluated" ? "status-pill--active" : "status-pill--pending")">
+                                @a.Status
+                            </span>
+                            <div class="d-flex gap-2">
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.EditNote" OnClick="@(() => OpenMarksDialog(a.Id))">
+                                    @(gradedCount > 0 ? "Edit Marks" : "Enter Marks")
+                                </MudButton>
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small" OnClick="@(() => DeleteAssessment(a.Id))" />
+                            </div>
+                        </div>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudContainer>
+
+<!-- Dialog: Create Assessment -->
+<MudDialog @bind-Visible="_createDialogVisible" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight: 700;">Create Internal Assessment</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudSelect T="int" @bind-Value="_newCourseId" Label="Course" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true">
+            @foreach (var c in _courses)
+            {
+                <MudSelectItem Value="@c.Id">@c.CourseCode - @c.CourseName</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="_newTitle" Label="Assessment Title" Placeholder="e.g. Unit Test 2: Network Topologies" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
+
+        <div class="d-flex gap-3 mb-3">
+            <MudSelect T="string" @bind-Value="_newType" Label="Assessment Type" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@("Unit Test")">Unit Test</MudSelectItem>
+                <MudSelectItem Value="@("Lab Practical")">Lab Practical</MudSelectItem>
+                <MudSelectItem Value="@("Assignment")">Assignment</MudSelectItem>
+                <MudSelectItem Value="@("Mid-Term")">Mid-Term Exam</MudSelectItem>
+                <MudSelectItem Value="@("Project Evaluation")">Project Evaluation</MudSelectItem>
+            </MudSelect>
+
+            <MudDatePicker @bind-Date="_newDate" Label="Assessment Date" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+
+        <div class="d-flex gap-3 mb-3">
+            <MudNumericField T="decimal" @bind-Value="_newMaxMarks" Label="Maximum Marks" Min="5" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            <MudNumericField T="decimal" @bind-Value="_newWeightage" Label="Weightage (%)" Min="1" Max="100" Variant="Variant.Outlined" Margin="Margin.Dense" />
+        </div>
+
+        <MudTextField @bind-Value="_newDescription" Label="Topics / Description (Optional)" Placeholder="e.g. Spine-leaf design, EVPN configurations" Lines="2" Variant="Variant.Outlined" Margin="Margin.Dense" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _createDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveNewAssessment">Create Assessment</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Marks Entry Sheet -->
+<MudDialog @bind-Visible="_marksDialogVisible" Options="_fullDialogOptions">
+    <TitleContent>
+        <div class="d-flex justify-space-between align-center pr-4">
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight: 700;">@_activeAssessment?.Title</MudText>
+                <MudText Typo="Typo.caption" Style="color: #64748b;">
+                    @_activeAssessment?.Course?.CourseCode - @_activeAssessment?.Course?.CourseName · Max Marks: @_activeAssessment?.MaxMarks.ToString("0")
+                </MudText>
+            </div>
+            <div class="d-flex gap-4 align-center">
+                <span style="font-size: 0.9rem; font-weight: 600; color: #2563eb;">
+                    Average: @CurrentAverage.ToString("0.1") / @_activeAssessment?.MaxMarks.ToString("0")
+                </span>
+                <span style="font-size: 0.9rem; font-weight: 600; color: #16a34a;">
+                    Pass Count: @CurrentPassCount / @(_editingMarks.Count(m => !m.IsAbsent))
+                </span>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div style="max-height: 520px; overflow-y: auto; border: 1px solid #E2E8F0; border-radius: 12px;">
+            <table class="w-100" style="font-size: 0.88rem; border-collapse: separate; border-spacing: 0;">
+                <thead style="position: sticky; top: 0; z-index: 2;">
+                    <tr style="background: #F8FAFC; border-bottom: 2px solid #E2E8F0;">
+                        <th style="padding: 10px 14px; text-align: left; width: 130px; font-size: 0.75rem; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.5px;">Roll No</th>
+                        <th style="padding: 10px 14px; text-align: left; font-size: 0.75rem; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.5px;">Student Name</th>
+                        <th style="padding: 10px 14px; text-align: center; width: 140px; font-size: 0.75rem; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.5px;">Marks (@_activeAssessment?.MaxMarks.ToString("0"))</th>
+                        <th style="padding: 10px 14px; text-align: center; width: 90px; font-size: 0.75rem; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.5px;">Absent</th>
+                        <th style="padding: 10px 14px; text-align: left; width: 220px; font-size: 0.75rem; text-transform: uppercase; color: #64748B; font-weight: 700; letter-spacing: 0.5px;">Remarks</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in _editingMarks)
+                    {
+                        <tr style="border-bottom: 1px solid #F1F5F9; background: @(m.IsAbsent ? "#FEF2F2" : "transparent"); transition: background 0.15s ease;">
+                            <td style="padding: 8px 14px;">
+                                <span class="badge badge--neutral" style="font-size: 0.72rem; font-weight: 700;">
+                                    @m.Student?.StudentCode
+                                </span>
+                            </td>
+                            <td style="padding: 8px 14px; font-weight: 600; color: #0F172A;">
+                                @m.Student?.FullName
+                            </td>
+                            <td style="padding: 8px 14px; text-align: center;">
+                                <MudNumericField T="decimal?" @bind-Value="m.MarksObtained"
+                                                 Disabled="@m.IsAbsent"
+                                                 Min="0" Max="@(_activeAssessment?.MaxMarks ?? 100)"
+                                                 Margin="Margin.Dense" Variant="Variant.Outlined"
+                                                 Style="max-width: 100px; margin: 0 auto; text-align: center;" />
+                            </td>
+                            <td style="padding: 8px 14px; text-align: center;">
+                                <MudCheckBox T="bool" Value="m.IsAbsent" ValueChanged="@((val) => OnAbsentChanged(m, val))" Color="Color.Error" Dense="true" />
+                            </td>
+                            <td style="padding: 8px 14px;">
+                                <MudTextField @bind-Value="m.Remarks" Placeholder="e.g. Good performance" Margin="Margin.Dense" Variant="Variant.Outlined" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _marksDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SaveMarks">
+            Save Marks
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<Assessment> _assessments = new();
+    private List<Course> _courses = new();
+    private AssessmentOverallStats _stats = new();
+
+    private int _selectedCourseId = 0;
+    private string _selectedType = "All";
+
+    private bool _createDialogVisible;
+    private int _newCourseId;
+    private string _newTitle = "";
+    private string _newType = "Unit Test";
+    private decimal _newMaxMarks = 25;
+    private decimal _newWeightage = 20;
+    private DateTime? _newDate = DateTime.Today;
+    private string? _newDescription;
+
+    private bool _marksDialogVisible;
+    private Assessment? _activeAssessment;
+    private List<StudentAssessmentMark> _editingMarks = new();
+
+    private DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+    private DialogOptions _fullDialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _courses = await CourseSvc.GetAllAsync();
+        if (_courses.Any())
+            _newCourseId = _courses.First().Id;
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _assessments = await AssessmentSvc.GetAssessmentsAsync(_selectedCourseId > 0 ? _selectedCourseId : null, _selectedType);
+        _stats = await AssessmentSvc.GetOverallStatsAsync();
+    }
+
+    private async Task OnCourseFilterChanged(int courseId)
+    {
+        _selectedCourseId = courseId;
+        await LoadData();
+    }
+
+    private async Task OnTypeFilterChanged(string type)
+    {
+        _selectedType = type;
+        await LoadData();
+    }
+
+    private void OpenCreateDialog()
+    {
+        _newTitle = "";
+        _newType = "Unit Test";
+        _newMaxMarks = 25;
+        _newWeightage = 20;
+        _newDate = DateTime.Today;
+        _newDescription = "";
+        if (_courses.Any() && _newCourseId == 0)
+            _newCourseId = _courses.First().Id;
+
+        _createDialogVisible = true;
+    }
+
+    private async Task SaveNewAssessment()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle) || _newCourseId == 0)
+        {
+            Snackbar.Add("Please specify assessment title and course.", Severity.Warning);
+            return;
+        }
+
+        var course = _courses.FirstOrDefault(c => c.Id == _newCourseId);
+        if (course == null) return;
+
+        var assessment = new Assessment
+        {
+            CourseId = _newCourseId,
+            SemesterId = course.SemesterId,
+            Title = _newTitle.Trim(),
+            Type = _newType,
+            MaxMarks = _newMaxMarks,
+            WeightagePercent = _newWeightage,
+            AssessmentDate = _newDate ?? DateTime.Today,
+            Description = _newDescription?.Trim(),
+            Status = "Scheduled"
+        };
+
+        try
+        {
+            await AssessmentSvc.CreateAssessmentAsync(assessment);
+            _createDialogVisible = false;
+            Snackbar.Add("Assessment created successfully.", Severity.Success);
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task OpenMarksDialog(int assessmentId)
+    {
+        _activeAssessment = await AssessmentSvc.GetAssessmentWithMarksAsync(assessmentId);
+        if (_activeAssessment != null)
+        {
+            _editingMarks = _activeAssessment.Marks.Select(m => new StudentAssessmentMark
+            {
+                Id = m.Id,
+                AssessmentId = m.AssessmentId,
+                StudentId = m.StudentId,
+                Student = m.Student,
+                MarksObtained = m.MarksObtained,
+                IsAbsent = m.IsAbsent,
+                Remarks = m.Remarks
+            }).ToList();
+
+            _marksDialogVisible = true;
+        }
+    }
+
+    private void OnAbsentChanged(StudentAssessmentMark mark, bool isAbsent)
+    {
+        mark.IsAbsent = isAbsent;
+        if (isAbsent)
+            mark.MarksObtained = 0;
+    }
+
+    private decimal CurrentAverage
+    {
+        get
+        {
+            var valid = _editingMarks.Where(m => m.MarksObtained.HasValue && !m.IsAbsent).ToList();
+            return valid.Any() ? valid.Average(m => m.MarksObtained!.Value) : 0;
+        }
+    }
+
+    private int CurrentPassCount
+    {
+        get
+        {
+            var max = _activeAssessment?.MaxMarks ?? 100;
+            return _editingMarks.Count(m => !m.IsAbsent && m.MarksObtained.HasValue && (m.MarksObtained.Value / max) >= 0.40m);
+        }
+    }
+
+    private async Task SaveMarks()
+    {
+        if (_activeAssessment == null) return;
+
+        try
+        {
+            await AssessmentSvc.SaveMarksAsync(_activeAssessment.Id, _editingMarks);
+            _marksDialogVisible = false;
+            Snackbar.Add("Marks saved successfully.", Severity.Success);
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving marks: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DeleteAssessment(int assessmentId)
+    {
+        try
+        {
+            await AssessmentSvc.DeleteAssessmentAsync(assessmentId);
+            Snackbar.Add("Assessment removed.", Severity.Info);
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting assessment: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetTypeBadgeClass(string type)
+    {
+        return type switch
+        {
+            "Unit Test" => "badge--blue",
+            "Lab Practical" => "badge--emerald",
+            "Assignment" => "badge--gold",
+            "Mid-Term" => "badge--purple",
+            _ => "badge--neutral"
+        };
+    }
+}

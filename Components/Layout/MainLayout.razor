@@ -1,0 +1,148 @@
+@inherits LayoutComponentBase
+
+<MudThemeProvider Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<a class="skip-link" href="#main-content">Skip to main content</a>
+
+<MudLayout>
+    <MudAppBar Elevation="0" Class="app-topbar px-3 px-md-5" Dense="false">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                       Edge="Edge.Start" OnClick="@ToggleDrawer" Class="app-menu-button mr-2"
+                       aria-label="Open main menu" aria-expanded="@_drawerOpen" />
+
+        <a href="/" class="app-brand" aria-label="DCMS home">
+            <span class="app-brand__mit-shell">
+                <img src="images/mit-wpu.jpg" class="app-brand__mit" alt="MIT-WPU" />
+            </span>
+            <span class="app-brand__divider"></span>
+            <div class="app-brand__copy">
+                <span class="app-brand__title">DCMS</span>
+                <span class="app-brand__subtitle">Faculty payment portal</span>
+            </div>
+            <span class="app-brand__partner">
+                <span>In association with</span>
+                <img src="images/nirvaa.jpg" class="app-brand__nirvaa" alt="NIRVAA Solutions" />
+            </span>
+        </a>
+
+        <MudSpacer />
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <span class="app-context d-none d-lg-flex">AY 2026–27 · Semester I</span>
+            <MudButton Href="/weekend" Variant="Variant.Filled" Size="Size.Small" Class="btn-gradient-primary app-primary-action d-none d-sm-flex"
+                       StartIcon="@Icons.Material.Filled.CalendarMonth">
+                Weekend Desk
+            </MudButton>
+            <MudIconButton Href="/weekend" Icon="@Icons.Material.Filled.CalendarMonth" Color="Color.Primary" Class="app-primary-action-mobile d-sm-none"
+                           aria-label="Open Weekend Desk" />
+        </MudStack>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="3" ClipMode="DrawerClipMode.Always"
+               Variant="DrawerVariant.Responsive" Breakpoint="Breakpoint.Md" Class="app-drawer" Width="260px">
+        <aside class="app-drawer__content" aria-label="Main navigation">
+            <div class="sidebar-heading">
+                <span>MIT-WPU · DCSE</span>
+                <strong>Academic Portal</strong>
+                <small>M.Tech Data Centre Technology</small>
+            </div>
+            <nav class="app-nav" aria-label="Application sections">
+                <NavMenu />
+            </nav>
+
+            <div class="sidebar-footer">
+                <span class="sidebar-footer__indicator" aria-hidden="true"></span>
+                <div>
+                    <strong>Academic workspace</strong>
+                    <small>Made by Pranav · 8180003121</small>
+                </div>
+            </div>
+        </aside>
+    </MudDrawer>
+
+    <MudMainContent Class="app-main-content">
+        <main id="main-content" class="app-content-region" tabindex="-1">
+            @Body
+        </main>
+
+        <footer class="app-site-footer">
+            <div class="app-site-footer__inner">
+                <div class="app-site-footer__credit">
+                    <span>Made with <span style="color: #ef4444;" aria-hidden="true">❤</span> by <strong>Pranav</strong></span>
+                    <span class="app-site-footer__sep">•</span>
+                    <span>DCMS Academic Operations</span>
+                </div>
+                <div class="app-site-footer__contact">
+                    <span class="app-site-footer__label">Contact:</span>
+                    <a href="tel:+918180003121" class="app-site-footer__link" title="Call Pranav">
+                        <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" Style="font-size: 14px;" />
+                        <span>8180003121</span>
+                    </a>
+                </div>
+            </div>
+        </footer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#2563EB",
+            PrimaryContrastText = "#FFFFFF",
+            Secondary = "#6366F1",
+            AppbarBackground = "#FFFFFF",
+            AppbarText = "#0F172A",
+            DrawerBackground = "#0F172A",
+            DrawerText = "#94A3B8",
+            Background = "#F8FAFC",
+            BackgroundGray = "#F1F5F9",
+            Surface = "#FFFFFF",
+            TextPrimary = "#0F172A",
+            TextSecondary = "#475569",
+            ActionDefault = "#64748B",
+            Success = "#10B981",
+            Warning = "#F59E0B",
+            Error = "#EF4444",
+            Info = "#0EA5E9",
+            LinesDefault = "#E2E8F0"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#4F91D2",
+            Secondary = "#D8B762",
+            AppbarBackground = "#0F172A",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#0F172A",
+            DrawerText = "#94A3B8",
+            Background = "#020617",
+            BackgroundGray = "#0B132B",
+            Surface = "#0F172A",
+            TextPrimary = "#F8FAFC",
+            TextSecondary = "#94A3B8",
+            Success = "#10B981",
+            Warning = "#F59E0B",
+            Error = "#EF4444",
+            Info = "#06B6D4",
+            LinesDefault = "#1E293B"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = new[] { "Plus Jakarta Sans", "Outfit", "Segoe UI", "sans-serif" }
+            }
+        },
+        LayoutProperties = new LayoutProperties
+        {
+            DrawerWidthLeft = "260px"
+        }
+    };
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+}

@@ -1,0 +1,20 @@
+# Build output
+bin/
+obj/
+build-verify/
+
+# Local application data and database
+App_Data/
+*.db
+*.db-shm
+*.db-wal
+*.bak
+
+# Local IDE and user settings
+.vs/
+.idea/
+*.user
+# Binaries and tools
+cloudflared.exe
+publish/
+appsettings.Development.json

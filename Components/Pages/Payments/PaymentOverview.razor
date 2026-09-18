@@ -1,0 +1,1254 @@
+@page "/payment-overview"
+@rendermode InteractiveServer
+@inject PaymentService PaymentSvc
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject IWebHostEnvironment HostEnv
+
+<PageTitle>DCMS — Faculty Compensation Overview</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-2 simple-page">
+    <!-- Executive Header -->
+    <section class="payover-header" aria-label="Faculty compensation overview banner">
+        <div>
+            <span class="premium-eyebrow">
+                <MudIcon Icon="@Icons.Material.Filled.Verified" Size="Size.Small" Class="mr-1" />
+                MIT-WPU × NIRVAA · Executive Compensation Ledger
+            </span>
+            <h1 class="payover-header__title">Faculty Payment & Conduction Overview</h1>
+            <p class="payover-header__subtitle">
+                Dual-horizon financial audit and lecture/practical register. Filter by any month (e.g. January), inspect conducted classes, and generate official NIRVAA & MIT-WPU payment receipts.
+            </p>
+        </div>
+        <div class="payover-header__actions">
+            <MudButton Href="/weekend" Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.CalendarMonth">
+                Weekend Desk
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Article" OnClick="OpenExecutiveSanctionDialog">
+                Executive Cover Page
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Receipt" OnClick="DownloadAllReceipts" Disabled="@(!_paymentOverview.Any())">
+                All Receipts (PDF)
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PictureAsPdf" OnClick="DownloadPdfReport" Disabled="@(!_paymentOverview.Any())">
+                Summary PDF
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FileDownload" OnClick="ExportToExcel" Disabled="@(!_paymentOverview.Any())">
+                Export Excel
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Print" OnClick="PrintLedger">
+                Print Ledger
+            </MudButton>
+        </div>
+    </section>
+
+    <!-- Interactive Navigation and Control Toolbar -->
+    <section class="payover-controls" aria-label="Date navigation and filters">
+        <div class="d-flex align-center flex-wrap gap-2 w-100 mb-2">
+            <!-- Mode Selector: By Month vs Specific Dates -->
+            <div class="d-inline-flex" style="background:#f1f5f9; padding:3px; border-radius:8px; border:1px solid #cbd5e1;">
+                <MudButton Size="Size.Small"
+                           Variant="@(_dateMode == DateSelectionMode.Month ? Variant.Filled : Variant.Text)"
+                           Color="@(_dateMode == DateSelectionMode.Month ? Color.Primary : Color.Default)"
+                           StartIcon="@Icons.Material.Filled.CalendarMonth"
+                           OnClick="@(() => SwitchMode(DateSelectionMode.Month))"
+                           Style="font-weight:700; font-size:0.8rem; text-transform:none;">
+                    By Month
+                </MudButton>
+                <MudButton Size="Size.Small"
+                           Variant="@(_dateMode == DateSelectionMode.DateRange ? Variant.Filled : Variant.Text)"
+                           Color="@(_dateMode == DateSelectionMode.DateRange ? Color.Primary : Color.Default)"
+                           StartIcon="@Icons.Material.Filled.DateRange"
+                           OnClick="@(() => SwitchMode(DateSelectionMode.DateRange))"
+                           Style="font-weight:700; font-size:0.8rem; text-transform:none;">
+                    Specific Dates
+                </MudButton>
+            </div>
+
+            <MudDivider Vertical="true" FlexItem="true" Class="mx-2 d-none d-md-flex" />
+
+            @if (_dateMode == DateSelectionMode.Month)
+            {
+                <!-- Month & Year Selector Strip -->
+                <div class="d-flex align-center flex-wrap gap-2">
+                    <div class="month-quick-selector">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Color="Color.Primary" Size="Size.Small" />
+                        <span style="font-size:0.75rem; font-weight:800; color:#164e80; text-transform:uppercase;">Month:</span>
+                        <MudSelect T="int" Value="@_referenceDate.Month" ValueChanged="OnMonthSelected" Dense="true" Margin="Margin.Dense" Variant="Variant.Text" Style="min-width:130px; font-weight:700;">
+                            <MudSelectItem Value="1">January</MudSelectItem>
+                            <MudSelectItem Value="2">February</MudSelectItem>
+                            <MudSelectItem Value="3">March</MudSelectItem>
+                            <MudSelectItem Value="4">April</MudSelectItem>
+                            <MudSelectItem Value="5">May</MudSelectItem>
+                            <MudSelectItem Value="6">June</MudSelectItem>
+                            <MudSelectItem Value="7">July</MudSelectItem>
+                            <MudSelectItem Value="8">August</MudSelectItem>
+                            <MudSelectItem Value="9">September</MudSelectItem>
+                            <MudSelectItem Value="10">October</MudSelectItem>
+                            <MudSelectItem Value="11">November</MudSelectItem>
+                            <MudSelectItem Value="12">December</MudSelectItem>
+                        </MudSelect>
+                        <MudSelect T="int" Value="@_referenceDate.Year" ValueChanged="OnYearSelected" Dense="true" Margin="Margin.Dense" Variant="Variant.Text" Style="min-width:90px; font-weight:700;">
+                            <MudSelectItem Value="2025">2025</MudSelectItem>
+                            <MudSelectItem Value="2026">2026</MudSelectItem>
+                            <MudSelectItem Value="2027">2027</MudSelectItem>
+                        </MudSelect>
+                    </div>
+
+                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="@(() => ShiftMonth(-1))" aria-label="Previous Month" />
+                        <MudButton OnClick="ShowCurrentMonth" Style="font-weight:700; font-size:0.75rem;">This Month</MudButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="@(() => ShiftMonth(1))" aria-label="Next Month" />
+                    </MudButtonGroup>
+                </div>
+            }
+            else
+            {
+                <!-- Specific Dates: From Date and To Date pickers -->
+                <div class="d-flex align-center flex-wrap gap-2">
+                    <MudDatePicker Date="@_customStartDate" DateChanged="OnCustomStartDateChanged" Label="From Date"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:150px;" />
+                    <MudDatePicker Date="@_customEndDate" DateChanged="OnCustomEndDateChanged" Label="To Date"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:150px;" />
+
+                    <!-- Quick Presets -->
+                    <div class="d-flex flex-wrap gap-1">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="PresetThisWeekend">
+                            Weekend
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="PresetFirstHalf">
+                            1st–15th
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="PresetSecondHalf">
+                            16th–End
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="PresetFullMonth">
+                            Whole Month
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Default" OnClick="PresetToday">
+                            Today
+                        </MudButton>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="d-flex align-center justify-space-between flex-wrap gap-2 w-100">
+            <!-- Active Period Badge -->
+            <div class="d-flex align-center flex-wrap gap-2">
+                <span class="status-pill" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem; padding:4px 10px; border-radius:12px; border:1px solid #bae6fd;">
+                    <MudIcon Icon="@Icons.Material.Filled.EventAvailable" Size="Size.Small" Style="vertical-align:text-bottom; margin-right:4px;" />
+                    Active Period: <b>@PeriodLabel</b>
+                </span>
+                <span style="font-size:0.75rem; color:#64748b; font-weight:600;">
+                    (@PeriodStart.ToString("dd MMM yyyy") – @PeriodEnd.ToString("dd MMM yyyy") · @PeriodDaysCount day@(PeriodDaysCount == 1 ? "" : "s"))
+                </span>
+            </div>
+
+            <MudTextField @bind-Value="_searchText" Placeholder="Search professor..." Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="payover-controls__search" Clearable="true" />
+        </div>
+    </section>
+
+    <!-- 4 High-Impact KPI Metric Cards -->
+    <section class="payover-kpi-grid" aria-label="Summary financial metrics">
+        <!-- Card 1: Weekend Payout -->
+        <div class="payover-kpi payover-kpi--emerald">
+            <div class="payover-kpi__top">
+                <span class="payover-kpi__label">Weekend Payout</span>
+                <span class="payover-kpi__icon"><MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" /></span>
+            </div>
+            <div>
+                <div class="payover-kpi__value">₹@TotalWeekendPay.ToString("N0")</div>
+                <div class="payover-kpi__caption">
+                    <b>@TotalWeekendLectures</b> lectures · <b>@TotalWeekendPracticals</b> practicals (@WeekendLabelShort)
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Selected Month Payout -->
+        <div class="payover-kpi payover-kpi--sapphire">
+            <div class="payover-kpi__top">
+                <span class="payover-kpi__label">@MonthLabel Payout</span>
+                <span class="payover-kpi__icon"><MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" /></span>
+            </div>
+            <div>
+                <div class="payover-kpi__value">₹@TotalMonthPay.ToString("N0")</div>
+                <div class="payover-kpi__caption">
+                    <b>@TotalMonthLectures</b> lectures · <b>@TotalMonthPracticals</b> practicals in @MonthLabel
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Monthly Lectures & Practicals Conduction -->
+        <div class="payover-kpi payover-kpi--amber">
+            <div class="payover-kpi__top">
+                <span class="payover-kpi__label">@MonthLabel Conduction</span>
+                <span class="payover-kpi__icon"><MudIcon Icon="@Icons.Material.Filled.MenuBook" /></span>
+            </div>
+            <div>
+                <div class="payover-kpi__value">@(TotalMonthLectures + TotalMonthPracticals) <small style="font-size:1.1rem; color:#786134;">classes</small></div>
+                <div class="payover-kpi__caption">
+                    <b>@TotalMonthLectures</b> Theory Lectures · <b>@TotalMonthPracticals</b> Practical Labs
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Active Faculty Participation -->
+        <div class="payover-kpi payover-kpi--indigo">
+            <div class="payover-kpi__top">
+                <span class="payover-kpi__label">Active Faculty</span>
+                <span class="payover-kpi__icon"><MudIcon Icon="@Icons.Material.Filled.Groups" /></span>
+            </div>
+            <div>
+                <div class="payover-kpi__value">@ActiveMonthFacultyCount <small style="font-size:1.1rem; color:#5c5691;">/ @_paymentOverview.Count</small></div>
+                <div class="payover-kpi__caption">
+                    <b>@NirvaaActiveMonthCount</b> NIRVAA · <b>@MitActiveMonthCount</b> MIT-WPU teaching in @MonthLabel
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Table Container -->
+    <MudPaper Elevation="0" Class="payover-table-card">
+        <div class="payover-table-header">
+            <div>
+                <span class="premium-eyebrow">Faculty Register & Remuneration · @MonthLabel</span>
+                <MudText Typo="Typo.h6" Class="payover-table-header__title">Conducted Classes and Calculated Compensation</MudText>
+                <div class="payover-table-header__subtitle">
+                    Showing @FilteredFaculty.Count() professors · <b>@FilteredMonthLectures</b> Lectures & <b>@FilteredMonthPracticals</b> Practicals in @MonthLabel.
+                </div>
+            </div>
+
+            <!-- Conduction and Organization Filters -->
+            <div class="payover-filters">
+                <MudButton Variant="Variant.Text" Class="@($"payover-filter-chip {(_selectedFilter == "All" ? "payover-filter-chip--active" : "")}")"
+                           OnClick="@(() => _selectedFilter = "All")">
+                    All Classes (@_paymentOverview.Count)
+                </MudButton>
+                <MudButton Variant="Variant.Text" Class="@($"payover-filter-chip {(_selectedFilter == "LecturesOnly" ? "payover-filter-chip--active" : "")}")"
+                           OnClick="@(() => _selectedFilter = "LecturesOnly")">
+                    Lectures Only (@_paymentOverview.Count(f => f.MonthlyLectureCount > 0))
+                </MudButton>
+                <MudButton Variant="Variant.Text" Class="@($"payover-filter-chip {(_selectedFilter == "PracticalsOnly" ? "payover-filter-chip--active" : "")}")"
+                           OnClick="@(() => _selectedFilter = "PracticalsOnly")">
+                    Practicals Only (@_paymentOverview.Count(f => f.MonthlyPracticalCount > 0))
+                </MudButton>
+                <MudButton Variant="Variant.Text" Class="@($"payover-filter-chip {(_selectedFilter == "ActiveMonth" ? "payover-filter-chip--active" : "")}")"
+                           OnClick="@(() => _selectedFilter = "ActiveMonth")">
+                    Active in @MonthLabel (@ActiveMonthFacultyCount)
+                </MudButton>
+                <MudButton Variant="Variant.Text" Class="@($"payover-filter-chip {(_selectedFilter == "NIRVAA" ? "payover-filter-chip--active" : "")}")"
+                           OnClick="@(() => _selectedFilter = "NIRVAA")">
+                    NIRVAA (@_paymentOverview.Count(f => f.Organization == "NIRVAA"))
+                </MudButton>
+                <MudButton Variant="Variant.Text" Class="@($"payover-filter-chip {(_selectedFilter == "MIT-WPU" ? "payover-filter-chip--active" : "")}")"
+                           OnClick="@(() => _selectedFilter = "MIT-WPU")">
+                    MIT-WPU (@_paymentOverview.Count(f => f.Organization == "MIT-WPU"))
+                </MudButton>
+            </div>
+        </div>
+
+        @if (FilteredFaculty.Any())
+        {
+            <div class="payover-table-wrapper simple-table">
+                <MudDataGrid Items="@FilteredFaculty" Dense="false" Hover="true" Elevation="0">
+                    <Columns>
+                        <!-- Professor Identity Column -->
+                        <TemplateColumn Title="Professor & Organization">
+                            <CellTemplate>
+                                <div class="faculty-profile-cell">
+                                    <MudAvatar Class="@($"faculty-profile-avatar {(context.Item.Organization == "NIRVAA" ? "faculty-profile-avatar--nirvaa" : "faculty-profile-avatar--mit")}")">
+                                        @GetInitials(context.Item.FacultyName)
+                                    </MudAvatar>
+                                    <div>
+                                        <div class="faculty-profile-name">@context.Item.FacultyName</div>
+                                        <div class="faculty-profile-tags">
+                                            <span class="@($"org-tag {(context.Item.Organization == "NIRVAA" ? "org-tag--nirvaa" : "org-tag--mit")}")">
+                                                @context.Item.Organization
+                                            </span>
+                                            <span class="role-tag">
+                                                @(string.IsNullOrWhiteSpace(context.Item.Designation) ? context.Item.Role : $"{context.Item.Designation} · {context.Item.Role}")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Base Fees -->
+                        <TemplateColumn Title="Configured Fees">
+                            <CellTemplate>
+                                <div style="display:flex; flex-direction:column; gap:3px;">
+                                    <span class="fee-inline">L: ₹@context.Item.LectureRate.ToString("N0")</span>
+                                    <span class="fee-inline fee-inline--blue">P: ₹@context.Item.PracticalRate.ToString("N0")</span>
+                                </div>
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Weekend Classes -->
+                        <TemplateColumn Title="Weekend Conducted">
+                            <CellTemplate>
+                                @if (context.Item.WeeklyLectureCount > 0 || context.Item.WeeklyPracticalCount > 0)
+                                {
+                                    <div class="class-mix-badge class-mix-badge--active">
+                                        <b>@context.Item.WeeklyLectureCount</b> L · <b>@context.Item.WeeklyPracticalCount</b> P
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="class-mix-badge class-mix-badge--empty">0 classes</div>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Weekend Earnings -->
+                        <TemplateColumn Title="Weekend Pay">
+                            <CellTemplate>
+                                @if (context.Item.WeeklyPayableAmount > 0)
+                                {
+                                    <span class="money-badge money-badge--weekend">
+                                        ₹@context.Item.WeeklyPayableAmount.ToString("N0")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="money-badge money-badge--zero">—</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Month Classes -->
+                        <TemplateColumn Title="@($"{MonthLabel} Conducted")">
+                            <CellTemplate>
+                                @if (context.Item.MonthlyLectureCount > 0 || context.Item.MonthlyPracticalCount > 0)
+                                {
+                                    <div class="class-mix-badge class-mix-badge--active" style="background:#eaf4fd; border-color:#bedcf7;">
+                                        <b>@context.Item.MonthlyLectureCount</b> Lectures · <b>@context.Item.MonthlyPracticalCount</b> Practicals
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="class-mix-badge class-mix-badge--empty">0 classes in @MonthLabelShort</div>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Month Earnings -->
+                        <TemplateColumn Title="@($"{MonthLabel} Pay")">
+                            <CellTemplate>
+                                @if (context.Item.MonthlyPayableAmount > 0)
+                                {
+                                    <span class="money-badge money-badge--month">
+                                        ₹@context.Item.MonthlyPayableAmount.ToString("N0")
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="money-badge money-badge--zero">—</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+
+                        <!-- Actions -->
+                        <TemplateColumn Title="">
+                            <CellTemplate>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Visibility"
+                                               OnClick="@(() => OpenBreakdownDialog(context.Item))">
+                                        View Classes
+                                    </MudButton>
+                                    <MudButton Variant="Variant.Text" Color="Color.Secondary" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Receipt"
+                                               OnClick="@(() => DownloadSingleReceipt(context.Item))">
+                                        Receipt
+                                    </MudButton>
+                                </MudStack>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+
+            <!-- Grand Totals Footer Strip -->
+            <div class="payover-table-footer">
+                <div>
+                    <MudText Typo="Typo.subtitle2" Style="color:#102a43; font-weight:800;">
+                        Aggregated Cohort Remuneration (@MonthLabel)
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color:#60758b;">
+                        Calculated from @FilteredFaculty.Count() professors · Total @FilteredMonthLectures Lectures & @FilteredMonthPracticals Practicals
+                    </MudText>
+                </div>
+                <div class="payover-table-footer__totals">
+                    <div>
+                        <span>Weekend Payout Total</span>
+                        <strong class="tot-weekend">₹@FilteredWeekendPay.ToString("N0")</strong>
+                    </div>
+                    <div>
+                        <span>@MonthLabel Payout Total</span>
+                        <strong class="tot-month">₹@FilteredMonthPay.ToString("N0")</strong>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="simple-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.PersonSearch" />
+                <div>
+                    <MudText Typo="Typo.subtitle1">No professors match the selected filters for @MonthLabel</MudText>
+                    <MudText Typo="Typo.body2">Try selecting "All Classes" or switching to another month above.</MudText>
+                </div>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => { _selectedFilter = "All"; _searchText = ""; })">
+                    Reset filters
+                </MudButton>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
+
+<!-- Detailed Session Breakdown Dialog -->
+<MudDialog @bind-Visible="_breakdownDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon dialog-title-simple__icon--blue">
+                <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" />
+            </span>
+            <div>
+                <MudText Typo="Typo.h6">Class Conduction & Fee Breakdown</MudText>
+                <MudText Typo="Typo.caption">Detailed audit of conducted lectures & practicals for @MonthLabel</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (_selectedFaculty is not null)
+        {
+            <div class="breakdown-prof-card">
+                <div class="faculty-profile-cell">
+                    <MudAvatar Class="@($"faculty-profile-avatar {(_selectedFaculty.Organization == "NIRVAA" ? "faculty-profile-avatar--nirvaa" : "faculty-profile-avatar--mit")}")">
+                        @GetInitials(_selectedFaculty.FacultyName)
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:800; color:#102a43;">
+                            @_selectedFaculty.FacultyName
+                        </MudText>
+                        <MudText Typo="Typo.caption" Style="color:#60758b;">
+                            @_selectedFaculty.Organization · @_selectedFaculty.Role @(!string.IsNullOrWhiteSpace(_selectedFaculty.Designation) ? $"({_selectedFaculty.Designation})" : "")
+                        </MudText>
+                    </div>
+                </div>
+                <div class="breakdown-rates">
+                    <span class="breakdown-rate-pill breakdown-rate-pill--lec">
+                        Lecture: ₹@_selectedFaculty.LectureRate.ToString("N0")
+                    </span>
+                    <span class="breakdown-rate-pill breakdown-rate-pill--prac">
+                        Practical: ₹@_selectedFaculty.PracticalRate.ToString("N0")
+                    </span>
+                </div>
+            </div>
+
+            <MudTabs Rounded="true" Elevation="0" Class="payover-breakdown-tabs" ApplyEffectsToContainer="true">
+                <!-- Tab 1: Month Sessions -->
+                <MudTabPanel Text="@($"{MonthLabel} Classes ({_selectedFaculty.MonthlySessions.Count})")" Icon="@Icons.Material.Filled.DateRange">
+                    @if (_selectedFaculty.MonthlySessions.Any())
+                    {
+                        <div class="simple-table mt-3">
+                            <MudTable Items="@_selectedFaculty.MonthlySessions" Dense="true" Hover="true" Elevation="0">
+                                <HeaderContent>
+                                    <MudTh>Date</MudTh>
+                                    <MudTh>Subject</MudTh>
+                                    <MudTh>Class Type</MudTh>
+                                    <MudTh>Timing</MudTh>
+                                    <MudTh Style="text-align:right;">Amount</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd><b>@context.Date.ToString("ddd, dd MMM yyyy")</b></MudTd>
+                                    <MudTd>
+                                        <div>@context.CourseName</div>
+                                        <small style="color:#71849a;">@context.CourseCode</small>
+                                    </MudTd>
+                                    <MudTd>
+                                        <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                    </MudTd>
+                                    <MudTd>@FormatTime(context.StartTime) – @FormatTime(context.EndTime)</MudTd>
+                                    <MudTd Style="text-align:right; font-weight:800; color:#104373;">₹@context.Amount.ToString("N0")</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </div>
+                        <div class="breakdown-summary-banner" style="background:#f0f7fd; border-color:#bddcf6;">
+                            <div>
+                                <span style="color:#1d5b91;">Monthly Compensation Formula (@MonthLabel)</span>
+                                <em style="color:#1e5ca8;">(@_selectedFaculty.MonthlyLectureCount lectures × ₹@_selectedFaculty.LectureRate.ToString("N0")) + (@_selectedFaculty.MonthlyPracticalCount practicals × ₹@_selectedFaculty.PracticalRate.ToString("N0"))</em>
+                            </div>
+                            <div>
+                                <span style="color:#1d5b91;">Month Total</span>
+                                <strong style="color:#104373;">₹@_selectedFaculty.MonthlyPayableAmount.ToString("N0")</strong>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="simple-empty-state mt-3">
+                            <MudIcon Icon="@Icons.Material.Filled.EventBusy" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1">No classes recorded for @MonthLabel</MudText>
+                                <MudText Typo="Typo.body2">This professor has 0 lectures and 0 practicals recorded for @MonthLabel.</MudText>
+                            </div>
+                        </div>
+                    }
+                </MudTabPanel>
+
+                <!-- Tab 2: Weekend Sessions -->
+                <MudTabPanel Text="@($"Weekend Classes ({_selectedFaculty.WeeklySessions.Count})")" Icon="@Icons.Material.Filled.CalendarMonth">
+                    @if (_selectedFaculty.WeeklySessions.Any())
+                    {
+                        <div class="simple-table mt-3">
+                            <MudTable Items="@_selectedFaculty.WeeklySessions" Dense="true" Hover="true" Elevation="0">
+                                <HeaderContent>
+                                    <MudTh>Date</MudTh>
+                                    <MudTh>Subject</MudTh>
+                                    <MudTh>Class Type</MudTh>
+                                    <MudTh>Timing</MudTh>
+                                    <MudTh Style="text-align:right;">Amount</MudTh>
+                                </HeaderContent>
+                                <RowTemplate>
+                                    <MudTd><b>@context.Date.ToString("ddd, dd MMM")</b></MudTd>
+                                    <MudTd>
+                                        <div>@context.CourseName</div>
+                                        <small style="color:#71849a;">@context.CourseCode</small>
+                                    </MudTd>
+                                    <MudTd>
+                                        <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                    </MudTd>
+                                    <MudTd>@FormatTime(context.StartTime) – @FormatTime(context.EndTime)</MudTd>
+                                    <MudTd Style="text-align:right; font-weight:800; color:#047857;">₹@context.Amount.ToString("N0")</MudTd>
+                                </RowTemplate>
+                            </MudTable>
+                        </div>
+                        <div class="breakdown-summary-banner">
+                            <div>
+                                <span>Weekend Compensation Formula</span>
+                                <em>(@_selectedFaculty.WeeklyLectureCount lectures × ₹@_selectedFaculty.LectureRate.ToString("N0")) + (@_selectedFaculty.WeeklyPracticalCount practicals × ₹@_selectedFaculty.PracticalRate.ToString("N0"))</em>
+                            </div>
+                            <div>
+                                <span>Weekend Total</span>
+                                <strong>₹@_selectedFaculty.WeeklyPayableAmount.ToString("N0")</strong>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="simple-empty-state mt-3">
+                            <MudIcon Icon="@Icons.Material.Filled.EventBusy" />
+                            <div>
+                                <MudText Typo="Typo.subtitle1">No classes recorded for this weekend</MudText>
+                                <MudText Typo="Typo.body2">This professor did not conduct any sessions during @WeekendLabel.</MudText>
+                            </div>
+                        </div>
+                    }
+                </MudTabPanel>
+            </MudTabs>
+        }
+    </DialogContent>
+    <DialogActions>
+        @if (_selectedFaculty is not null)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Receipt"
+                       OnClick="@(() => DownloadSingleReceipt(_selectedFaculty))">
+                Download Remuneration Receipt (PDF)
+            </MudButton>
+        }
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="@(() => _breakdownDialogVisible = false)">
+            Close
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Executive Sanction & Cover Page Generator Dialog -->
+<MudDialog @bind-Visible="_executiveSanctionDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon" style="background:#e0f2fe; color:#0284c7;">
+                <MudIcon Icon="@Icons.Material.Filled.Article" />
+            </span>
+            <div>
+                <MudText Typo="Typo.h6" Style="color:#102a43; font-weight:800;">Executive Sanction Cover Page Generator</MudText>
+                <MudText Typo="Typo.caption" Style="color:#64748b;">Official Memorandum for Executive Sanction · Select any date range to generate this executive cover page</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="d-flex flex-column gap-3">
+            <!-- 1. Quick Presets & Date Range Filter Strip -->
+            <MudPaper Elevation="0" Class="pa-3" Style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                <div class="d-flex align-center justify-space-between flex-wrap gap-2 mb-2">
+                    <span style="font-size:0.75rem; font-weight:800; color:#1e293b; text-transform:uppercase; letter-spacing:0.5px;">
+                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="vertical-align:text-bottom; margin-right:4px;" />
+                        Quick Date Presets:
+                    </span>
+                    <div class="d-flex flex-wrap gap-1">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="@(() => SetSanctionRange(new DateTime(2026, 8, 1), new DateTime(2026, 8, 31)))">
+                            August 2026 (Ref Memo)
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary"
+                                   OnClick="@(() => SetSanctionRange(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30)))">
+                            September 2026
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                   OnClick="@(() => SetSanctionRange(MonthStart, MonthEnd))">
+                            Current Ledger Month
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                   OnClick="@(() => SetSanctionRange(WeekendStart, WeekendEnd))">
+                            Selected Weekend
+                        </MudButton>
+                    </div>
+                </div>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="4">
+                        <MudDatePicker Date="@_sanctionStartDate" DateChanged="OnSanctionStartDateChanged"
+                                       Label="Start Date" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudDatePicker Date="@_sanctionEndDate" DateChanged="OnSanctionEndDateChanged"
+                                       Label="End Date" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4" Class="d-flex align-center">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                                   StartIcon="@Icons.Material.Filled.Refresh" OnClick="LoadSanctionData"
+                                   Disabled="@_isLoadingSanctionData">
+                            Update Preview
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+
+            <!-- 2. Memorandum Reference Details (Editable) -->
+            <MudExpansionPanels Elevation="0">
+                <MudExpansionPanel Text="Memorandum Reference & Sign-off Details" Style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px;">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_sanctionRefNo" Label="Reference Number" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudDatePicker @bind-Date="_sanctionMemoDate" Label="Date of Memorandum" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_sanctionCycleLabel" Label="Cycle Title" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField @bind-Value="_sanctionStatus" Label="Audit Status" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+                    </MudGrid>
+                </MudExpansionPanel>
+            </MudExpansionPanels>
+
+            @if (_isLoadingSanctionData)
+            {
+                <div class="d-flex justify-center pa-8">
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                </div>
+            }
+            else if (_sanctionData is not null)
+            {
+                <!-- 3. Key Sanction KPI Cards -->
+                <div class="d-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
+                    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px;">
+                        <span style="font-size:0.7rem; font-weight:700; color:#166534; text-transform:uppercase;">Total Sanction Amount</span>
+                        <div style="font-size:1.4rem; font-weight:800; color:#14532d;">₹@_sanctionData.TotalAmount.ToString("N0")</div>
+                        <small style="color:#15803d; font-size:0.75rem;">Consolidated Remuneration</small>
+                    </div>
+
+                    <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:10px;">
+                        <span style="font-size:0.7rem; font-weight:700; color:#1e40af; text-transform:uppercase;">Audited Teaching Hours</span>
+                        <div style="font-size:1.4rem; font-weight:800; color:#1e3a8a;">@_sanctionData.TotalHours.ToString("0.#") hrs</div>
+                        <small style="color:#2563eb; font-size:0.75rem;">Verified LMS & Timetable</small>
+                    </div>
+
+                    <div style="background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px; padding:10px;">
+                        <span style="font-size:0.7rem; font-weight:700; color:#6b21a8; text-transform:uppercase;">Participating Faculty</span>
+                        <div style="font-size:1.4rem; font-weight:800; color:#581c87;">@_sanctionData.FacultyItems.Count Faculty</div>
+                        <small style="color:#7c3aed; font-size:0.75rem;">NIRVAA & MIT-WPU</small>
+                    </div>
+                </div>
+
+                <!-- 4. Subject Container -->
+                <div style="background:#e0f2fe; border:1px solid #0284c7; border-radius:6px; padding:8px 12px;">
+                    <span style="font-size:0.72rem; font-weight:800; color:#0369a1; text-transform:uppercase;">
+                        @_sanctionData.SubjectLine
+                    </span>
+                </div>
+
+                <!-- 5. Executive Narrative Preview -->
+                <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px;">
+                    <div style="font-weight:700; font-size:0.8rem; color:#1e293b; margin-bottom:4px;">Respected Authorities,</div>
+                    <div style="font-size:0.76rem; color:#334155; line-height:1.45;">@_sanctionData.ExecutiveNarrative</div>
+                </div>
+
+                <!-- 6. Itemized Faculty Conduction Schedule Table -->
+                <MudPaper Elevation="0" Style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+                    <div class="pa-2 px-3" style="background:#102a43; color:white; font-weight:700; font-size:0.8rem;">
+                        Audited Faculty Remuneration Schedule (@_sanctionData.CycleTitle)
+                    </div>
+                    <MudTable Items="@_sanctionData.FacultyItems" Dense="true" Hover="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh Style="width:40px; text-align:center;">Sr.</MudTh>
+                            <MudTh Style="width:90px; text-align:center;">Voucher</MudTh>
+                            <MudTh>Faculty Member</MudTh>
+                            <MudTh>Subject & Conduction Schedule</MudTh>
+                            <MudTh Style="text-align:center;">Hours</MudTh>
+                            <MudTh Style="text-align:right;">Rate (INR)</MudTh>
+                            <MudTh Style="text-align:right;">Payable (INR)</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd Style="text-align:center;">@context.SrNo</MudTd>
+                            <MudTd Style="text-align:center;">
+                                <span style="font-weight:700; font-size:0.75rem; color:#102a43; background:#f1f5f9; padding:2px 6px; border-radius:4px;">
+                                    @context.VoucherNo
+                                </span>
+                            </MudTd>
+                            <MudTd>
+                                <div style="font-weight:700; color:#0f172a;">@context.FacultyName</div>
+                                <div style="font-size:0.72rem; color:#64748b;">@context.DesignationOrRole</div>
+                            </MudTd>
+                            <MudTd>
+                                <div style="font-weight:600; color:#0f172a;">@context.SubjectAndCode</div>
+                                <div style="font-size:0.72rem; color:#0284c7;">@context.ConductionSchedule</div>
+                            </MudTd>
+                            <MudTd Style="text-align:center; font-weight:600;">@context.Hours.ToString("0.#")h</MudTd>
+                            <MudTd Style="text-align:right;">₹@context.Rate.ToString("N0")</MudTd>
+                            <MudTd Style="text-align:right; font-weight:800; color:#102a43;">₹@context.PayableAmount.ToString("N0")</MudTd>
+                        </RowTemplate>
+                        <FooterContent>
+                            <MudTd colspan="4" Style="font-weight:800; background:#e2e8f0; color:#102a43;">
+                                TOTAL CONSOLIDATED REMUNERATION (@_sanctionData.CycleTitle.ToUpper())
+                            </MudTd>
+                            <MudTd Style="text-align:center; font-weight:800; background:#e2e8f0; color:#102a43;">
+                                @_sanctionData.TotalHours.ToString("0.#")h
+                            </MudTd>
+                            <MudTd Style="text-align:center; background:#e2e8f0;">-</MudTd>
+                            <MudTd Style="text-align:right; font-weight:800; background:#e2e8f0; color:#102a43;">
+                                INR @_sanctionData.TotalAmount.ToString("N0")
+                            </MudTd>
+                        </FooterContent>
+                    </MudTable>
+                </MudPaper>
+
+                <!-- 7. Certification, Enclosures & Words Strip -->
+                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 12px; font-size:0.75rem;">
+                    <div style="color:#1e293b;">
+                        <b>Amount in Words:</b> @_sanctionData.AmountInWords | <b>Mode:</b> @_sanctionData.PaymentMode
+                    </div>
+                    <div style="color:#64748b; margin-top:2px;">
+                        <b>Enclosures:</b> @_sanctionData.EnclosuresText
+                    </div>
+                </div>
+
+                <!-- 8. Executive Review & Signature Matrix Preview -->
+                <div>
+                    <div style="font-weight:800; font-size:0.75rem; color:#102a43; text-transform:uppercase; margin-bottom:6px;">
+                        Executive Review & Signature Approval Matrix (4 Boxes)
+                    </div>
+                    <MudGrid Spacing="2">
+                        @foreach (var sig in _sanctionData.ApprovalMatrix)
+                        {
+                            <MudItem xs="12" sm="6">
+                                <MudPaper Elevation="0" Class="pa-3" Style="border:1px solid #cbd5e1; border-radius:6px; background:#f8fafc;">
+                                    <div style="font-size:0.75rem; font-weight:800; color:#0284c7;">@sig.StepTitle</div>
+                                    <div style="font-size:0.75rem; font-weight:700; color:#0f172a;">@sig.Name <span style="font-weight:400; color:#64748b;">| @sig.Designation</span></div>
+                                    <div style="font-size:0.7rem; color:#64748b; margin-top:2px;">Scope: @sig.Scope</div>
+                                    <div style="font-size:0.7rem; color:#334155; margin-top:4px;">Status: [ ] @sig.StatusText | Date: ____________</div>
+                                    <div style="font-size:0.7rem; color:#334155; margin-top:4px;">Signature: ____________________________________</div>
+                                </MudPaper>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </div>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   OnClick="DownloadSanctionDossier" Disabled="@(_sanctionData is null || !_sanctionData.FacultyItems.Any())">
+            Download Complete Dossier (Cover + Vouchers)
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Description"
+                   OnClick="DownloadSanctionCoverPage" Disabled="@(_sanctionData is null)">
+            Download Cover Page (PDF)
+        </MudButton>
+        <MudButton Variant="Variant.Text" OnClick="@(() => _executiveSanctionDialogVisible = false)">
+            Close
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Microsoft.AspNetCore.Components.SupplyParameterFromQuery(Name = "date")]
+    public DateTime? ReportDate { get; set; }
+
+    private DateTime _referenceDate = DateTime.Today;
+    private List<FacultyPaymentOverview> _paymentOverview = new();
+    private string _searchText = "";
+    private string _selectedFilter = "All";
+    private bool _breakdownDialogVisible;
+    private FacultyPaymentOverview? _selectedFaculty;
+
+    // Executive Sanction State
+    private bool _executiveSanctionDialogVisible;
+    private DateTime? _sanctionStartDate = new DateTime(2026, 8, 1);
+    private DateTime? _sanctionEndDate = new DateTime(2026, 8, 31);
+    private string _sanctionRefNo = "NIRVAA/DCMS/ES/2026/08-01";
+    private DateTime? _sanctionMemoDate = new DateTime(2026, 8, 31);
+    private string _sanctionCycleLabel = "AUGUST 2026";
+    private string _sanctionStatus = "Audited & Recommended";
+    private ExecutiveSanctionData? _sanctionData;
+    private bool _isLoadingSanctionData;
+
+    private enum DateSelectionMode { Month, DateRange }
+    private DateSelectionMode _dateMode = DateSelectionMode.Month;
+    private DateTime? _customStartDate;
+    private DateTime? _customEndDate;
+
+    private DateTime WeekendStart => MostRecentFriday(_referenceDate);
+    private DateTime WeekendEnd => WeekendStart.AddDays(2);
+    private DateTime MonthStart => new(_referenceDate.Year, _referenceDate.Month, 1);
+    private DateTime MonthEnd => MonthStart.AddMonths(1).AddDays(-1);
+
+    private DateTime PeriodStart => _dateMode == DateSelectionMode.Month
+        ? MonthStart
+        : (_customStartDate ?? MonthStart);
+
+    private DateTime PeriodEnd => _dateMode == DateSelectionMode.Month
+        ? MonthEnd
+        : (_customEndDate ?? MonthEnd);
+
+    private int PeriodDaysCount => Math.Max(1, (int)(PeriodEnd.Date - PeriodStart.Date).TotalDays + 1);
+
+    private string WeekendLabel => $"{WeekendStart:dd MMM} – {WeekendEnd:dd MMM yyyy}";
+    private string WeekendLabelShort => $"{WeekendStart:dd MMM}–{WeekendEnd:dd MMM}";
+
+    private string PeriodLabel
+    {
+        get
+        {
+            if (_dateMode == DateSelectionMode.Month)
+                return _referenceDate.ToString("MMMM yyyy");
+
+            if (PeriodStart.Date == PeriodEnd.Date)
+                return PeriodStart.ToString("dd MMMM yyyy");
+
+            if (PeriodStart.Year == PeriodEnd.Year && PeriodStart.Month == PeriodEnd.Month && PeriodStart.Day == 1 && PeriodEnd.Day == DateTime.DaysInMonth(PeriodStart.Year, PeriodStart.Month))
+                return PeriodStart.ToString("MMMM yyyy");
+
+            if (PeriodStart.Year == PeriodEnd.Year)
+                return $"{PeriodStart:dd MMM} – {PeriodEnd:dd MMM yyyy}";
+
+            return $"{PeriodStart:dd MMM yyyy} – {PeriodEnd:dd MMM yyyy}";
+        }
+    }
+
+    private string PeriodLabelShort
+    {
+        get
+        {
+            if (_dateMode == DateSelectionMode.Month)
+                return _referenceDate.ToString("MMM yyyy");
+
+            if (PeriodStart.Date == PeriodEnd.Date)
+                return PeriodStart.ToString("dd MMM");
+
+            return $"{PeriodStart:dd MMM}–{PeriodEnd:dd MMM}";
+        }
+    }
+
+    private string MonthLabel => PeriodLabel;
+    private string MonthLabelShort => PeriodLabelShort;
+
+    private IEnumerable<FacultyPaymentOverview> FilteredFaculty
+    {
+        get
+        {
+            var items = _paymentOverview.AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_searchText))
+            {
+                items = items.Where(f =>
+                    f.FacultyName.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                    (f.Designation?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    f.Organization.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            items = _selectedFilter switch
+            {
+                "LecturesOnly" => items.Where(f => f.MonthlyLectureCount > 0),
+                "PracticalsOnly" => items.Where(f => f.MonthlyPracticalCount > 0),
+                "ActiveMonth" => items.Where(f => f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0 || f.MonthlyPracticalCount > 0),
+                "NIRVAA" => items.Where(f => f.Organization == "NIRVAA"),
+                "MIT-WPU" => items.Where(f => f.Organization == "MIT-WPU"),
+                _ => items
+            };
+
+            return items;
+        }
+    }
+
+    // Totals for all faculty
+    private decimal TotalWeekendPay => _paymentOverview.Sum(f => f.WeeklyPayableAmount);
+    private decimal TotalMonthPay => _paymentOverview.Sum(f => f.MonthlyPayableAmount);
+    private int TotalWeekendLectures => _paymentOverview.Sum(f => f.WeeklyLectureCount);
+    private int TotalWeekendPracticals => _paymentOverview.Sum(f => f.WeeklyPracticalCount);
+    private int TotalMonthLectures => _paymentOverview.Sum(f => f.MonthlyLectureCount);
+    private int TotalMonthPracticals => _paymentOverview.Sum(f => f.MonthlyPracticalCount);
+    private int ActiveMonthFacultyCount => _paymentOverview.Count(f => f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0 || f.MonthlyPracticalCount > 0);
+    private int NirvaaActiveMonthCount => _paymentOverview.Count(f => f.Organization == "NIRVAA" && (f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0));
+    private int MitActiveMonthCount => _paymentOverview.Count(f => f.Organization == "MIT-WPU" && (f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0));
+
+    // Totals for filtered list
+    private decimal FilteredWeekendPay => FilteredFaculty.Sum(f => f.WeeklyPayableAmount);
+    private decimal FilteredMonthPay => FilteredFaculty.Sum(f => f.MonthlyPayableAmount);
+    private int FilteredMonthLectures => FilteredFaculty.Sum(f => f.MonthlyLectureCount);
+    private int FilteredMonthPracticals => FilteredFaculty.Sum(f => f.MonthlyPracticalCount);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ReportDate.HasValue)
+            _referenceDate = ReportDate.Value.Date;
+
+        _customStartDate = MonthStart;
+        _customEndDate = MonthEnd;
+
+        await LoadOverview();
+    }
+
+    private async Task SwitchMode(DateSelectionMode mode)
+    {
+        _dateMode = mode;
+        if (_dateMode == DateSelectionMode.DateRange)
+        {
+            _customStartDate ??= MonthStart;
+            _customEndDate ??= MonthEnd;
+        }
+        await LoadOverview();
+    }
+
+    private async Task OnCustomStartDateChanged(DateTime? date)
+    {
+        if (!date.HasValue) return;
+        _customStartDate = date.Value.Date;
+        if (_customEndDate.HasValue && _customStartDate > _customEndDate)
+        {
+            _customEndDate = _customStartDate;
+        }
+        await LoadOverview();
+    }
+
+    private async Task OnCustomEndDateChanged(DateTime? date)
+    {
+        if (!date.HasValue) return;
+        _customEndDate = date.Value.Date;
+        if (_customStartDate.HasValue && _customEndDate < _customStartDate)
+        {
+            _customStartDate = _customEndDate;
+        }
+        await LoadOverview();
+    }
+
+    private async Task SetPresetRange(DateTime start, DateTime end)
+    {
+        _dateMode = DateSelectionMode.DateRange;
+        _customStartDate = start.Date;
+        _customEndDate = end.Date;
+        await LoadOverview();
+    }
+
+    private async Task PresetThisWeekend() => await SetPresetRange(WeekendStart, WeekendEnd);
+    private async Task PresetFirstHalf() => await SetPresetRange(new DateTime(_referenceDate.Year, _referenceDate.Month, 1), new DateTime(_referenceDate.Year, _referenceDate.Month, 15));
+    private async Task PresetSecondHalf() => await SetPresetRange(new DateTime(_referenceDate.Year, _referenceDate.Month, 16), MonthEnd);
+    private async Task PresetFullMonth() => await SetPresetRange(MonthStart, MonthEnd);
+    private async Task PresetToday() => await SetPresetRange(DateTime.Today, DateTime.Today);
+
+    private async Task ChangeReferenceDate(DateTime? date)
+    {
+        if (!date.HasValue) return;
+        _referenceDate = date.Value.Date;
+        _customStartDate = MonthStart;
+        _customEndDate = MonthEnd;
+        await LoadOverview();
+    }
+
+    private async Task OnMonthSelected(int month)
+    {
+        var daysInMonth = DateTime.DaysInMonth(_referenceDate.Year, month);
+        var targetDay = Math.Min(_referenceDate.Day, daysInMonth);
+        _referenceDate = new DateTime(_referenceDate.Year, month, targetDay);
+        _customStartDate = MonthStart;
+        _customEndDate = MonthEnd;
+        await LoadOverview();
+    }
+
+    private async Task OnYearSelected(int year)
+    {
+        var daysInMonth = DateTime.DaysInMonth(year, _referenceDate.Month);
+        var targetDay = Math.Min(_referenceDate.Day, daysInMonth);
+        _referenceDate = new DateTime(year, _referenceDate.Month, targetDay);
+        _customStartDate = MonthStart;
+        _customEndDate = MonthEnd;
+        await LoadOverview();
+    }
+
+    private async Task ShiftMonth(int delta)
+    {
+        _referenceDate = _referenceDate.AddMonths(delta);
+        _customStartDate = MonthStart;
+        _customEndDate = MonthEnd;
+        await LoadOverview();
+    }
+
+    private async Task ShowCurrentMonth()
+    {
+        _referenceDate = DateTime.Today;
+        _customStartDate = MonthStart;
+        _customEndDate = MonthEnd;
+        await LoadOverview();
+    }
+
+    private async Task LoadOverview()
+    {
+        _paymentOverview = await PaymentSvc.GetFacultyPaymentOverviewAsync(
+            WeekendStart,
+            WeekendEnd,
+            PeriodStart,
+            PeriodEnd);
+    }
+
+    private void OpenBreakdownDialog(FacultyPaymentOverview faculty)
+    {
+        _selectedFaculty = faculty;
+        _breakdownDialogVisible = true;
+    }
+
+    private async Task DownloadSingleReceipt(FacultyPaymentOverview faculty)
+    {
+        try
+        {
+            var bytes = PaymentSvc.GenerateFacultyPaymentReceiptPdf(
+                faculty,
+                PeriodStart,
+                PeriodEnd,
+                HostEnv.WebRootPath);
+
+            var base64 = Convert.ToBase64String(bytes);
+            var safeName = faculty.FacultyName.Replace(" ", "_").Replace(".", "");
+            var filename = $"Payment_Receipt_{safeName}_{PeriodStart:yyyyMMdd}_to_{PeriodEnd:yyyyMMdd}.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add($"Receipt for {faculty.FacultyName} ({PeriodLabel}) downloaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Receipt generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadAllReceipts()
+    {
+        try
+        {
+            var bytes = PaymentSvc.GenerateAllFacultyReceiptsPdf(
+                _paymentOverview,
+                PeriodStart,
+                PeriodEnd,
+                HostEnv.WebRootPath);
+
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"All_Faculty_Receipts_{PeriodStart:yyyyMMdd}_to_{PeriodEnd:yyyyMMdd}.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add($"All {_paymentOverview.Count} faculty receipts bundled and downloaded for {PeriodLabel}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Bundle generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadPdfReport()
+    {
+        try
+        {
+            var bytes = PaymentSvc.GenerateMonthlyPaymentPdf(
+                _paymentOverview,
+                PeriodStart,
+                PeriodEnd);
+
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Faculty_Disbursement_{PeriodStart:yyyyMMdd}_to_{PeriodEnd:yyyyMMdd}.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add($"PDF Report for {PeriodLabel} downloaded successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"PDF generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task ExportToExcel()
+    {
+        try
+        {
+            var bytes = PaymentSvc.ExportPaymentOverviewExcel(
+                _paymentOverview,
+                WeekendStart,
+                WeekendEnd,
+                PeriodStart,
+                PeriodEnd);
+
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Faculty_Payment_Ledger_{PeriodStart:yyyyMMdd}_to_{PeriodEnd:yyyyMMdd}.xlsx";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+            Snackbar.Add("Excel report exported successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task PrintLedger()
+    {
+        await JS.InvokeVoidAsync("printPage");
+    }
+
+    private async Task OpenExecutiveSanctionDialog()
+    {
+        _sanctionStartDate ??= new DateTime(2026, 8, 1);
+        _sanctionEndDate ??= new DateTime(2026, 8, 31);
+        _sanctionMemoDate ??= new DateTime(2026, 8, 31);
+        _executiveSanctionDialogVisible = true;
+        await LoadSanctionData();
+    }
+
+    private async Task SetSanctionRange(DateTime start, DateTime end)
+    {
+        _sanctionStartDate = start;
+        _sanctionEndDate = end;
+        _sanctionMemoDate = end;
+        if (start.Year == end.Year && start.Month == end.Month)
+        {
+            _sanctionCycleLabel = start.ToString("MMMM yyyy").ToUpper();
+        }
+        else
+        {
+            _sanctionCycleLabel = $"{start:dd MMM yyyy} – {end:dd MMM yyyy}".ToUpper();
+        }
+        _sanctionRefNo = $"NIRVAA/DCMS/ES/{start:yyyy}/{start:MM}-{end:dd}";
+        await LoadSanctionData();
+    }
+
+    private async Task OnSanctionStartDateChanged(DateTime? date)
+    {
+        _sanctionStartDate = date;
+        if (_sanctionStartDate.HasValue && _sanctionEndDate.HasValue)
+        {
+            await LoadSanctionData();
+        }
+    }
+
+    private async Task OnSanctionEndDateChanged(DateTime? date)
+    {
+        _sanctionEndDate = date;
+        if (_sanctionStartDate.HasValue && _sanctionEndDate.HasValue)
+        {
+            _sanctionMemoDate = _sanctionEndDate;
+            await LoadSanctionData();
+        }
+    }
+
+    private async Task LoadSanctionData()
+    {
+        if (!_sanctionStartDate.HasValue || !_sanctionEndDate.HasValue) return;
+
+        try
+        {
+            _isLoadingSanctionData = true;
+            StateHasChanged();
+
+            _sanctionData = await PaymentSvc.GetExecutiveSanctionDataAsync(
+                _sanctionStartDate.Value,
+                _sanctionEndDate.Value,
+                _sanctionRefNo,
+                _sanctionMemoDate ?? _sanctionEndDate.Value,
+                _sanctionCycleLabel,
+                null,
+                _sanctionStatus);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load sanction data: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isLoadingSanctionData = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DownloadSanctionCoverPage()
+    {
+        if (_sanctionData is null) return;
+        try
+        {
+            var bytes = PaymentSvc.GenerateExecutiveSanctionCoverPagePdf(_sanctionData, HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Executive_Sanction_CoverPage_{_sanctionData.StartDate:yyyyMMdd}_{_sanctionData.EndDate:yyyyMMdd}.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add($"Executive Sanction Cover Page ({_sanctionData.CycleTitle}) downloaded successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"PDF generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadSanctionDossier()
+    {
+        if (_sanctionData is null) return;
+        try
+        {
+            var bytes = PaymentSvc.GenerateExecutiveSanctionDossierPdf(_sanctionData, HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Executive_Sanction_Dossier_{_sanctionData.StartDate:yyyyMMdd}_{_sanctionData.EndDate:yyyyMMdd}.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add($"Executive Sanction Dossier (Cover + {_sanctionData.FacultyItems.Count} Vouchers) downloaded successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Dossier generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "F";
+        var parts = name.Replace("Dr.", "").Replace("Mr.", "").Replace("Prof.", "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant() : parts[0][0].ToString().ToUpperInvariant();
+    }
+
+    private static string FormatTime(TimeSpan time) => DateTime.Today.Add(time).ToString("h:mm tt");
+    private static DateTime MostRecentFriday(DateTime date)
+    {
+        var daysSinceFriday = ((int)date.DayOfWeek - (int)DayOfWeek.Friday + 7) % 7;
+        return date.Date.AddDays(-daysSinceFriday);
+    }
+}
+
+

@@ -1,0 +1,807 @@
+@page "/weekend"
+@rendermode InteractiveServer
+@inject SessionService SessionSvc
+@inject AttendanceService AttendanceSvc
+@inject FacultyService FacultySvc
+@inject CourseService CourseSvc
+@inject PaymentService PaymentSvc
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>DCMS — Weekend Desk</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro weekend-desk-intro">
+        <div>
+            <span class="premium-eyebrow">Friday · Saturday · Sunday</span>
+            <MudText Typo="Typo.h4">Weekend desk</MudText>
+            <MudText Typo="Typo.body2">Each night, record the classes conducted, mark student attendance, and review the faculty report in one place.</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.CalendarMonth" OnClick="@(() => _activeTab = 0)">
+            Open timetable
+        </MudButton>
+    </section>
+
+    <section class="weekend-desk-picker" aria-label="Weekend date selector">
+        <div class="weekend-desk-picker__top">
+            <div>
+                <span class="premium-eyebrow">Teaching weekend</span>
+                <MudText Typo="Typo.h6">@WeekendLabel</MudText>
+            </div>
+            <div class="weekend-desk-picker__controls">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Color="Color.Primary" OnClick="@(() => ShiftWeekend(-7))" aria-label="Previous weekend" />
+                <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ShowCurrentWeekend">Current weekend</MudButton>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Primary" OnClick="@(() => ShiftWeekend(7))" aria-label="Next weekend" />
+            </div>
+        </div>
+        <div class="weekend-desk-picker__days">
+            @foreach (var date in WeekendDates)
+            {
+                <MudButton Variant="Variant.Text" Class="@($"weekend-date-tab {(IsSelectedDate(date) ? "weekend-date-tab--active" : string.Empty)}")"
+                           OnClick="@(() => SetSelectedDate(date))">
+                    <span>@date.ToString("dddd")</span>
+                    <strong>@date.ToString("dd MMM")</strong>
+                    <small>@(DaySessionCount(date)) classes</small>
+                </MudButton>
+            }
+        </div>
+    </section>
+
+    <section class="selected-day-banner">
+        <span class="selected-day-banner__icon"><MudIcon Icon="@Icons.Material.Filled.EventNote" /></span>
+        <div>
+            <span>Selected date</span>
+            <strong>@_selectedDate.ToString("dddd, dd MMMM yyyy")</strong>
+        </div>
+        <MudDatePicker Date="@_selectedDate" DateChanged="SelectCustomDate" Label="Choose another date" Variant="Variant.Outlined" Margin="Margin.Dense" Class="selected-day-banner__picker" />
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.TaskAlt"
+                   Disabled="@(!CanSubmitDay)" OnClick="OpenSubmitDayDialog" Class="selected-day-banner__submit">
+            @SubmitDayButtonLabel
+        </MudButton>
+    </section>
+
+    <MudTabs @bind-ActivePanelIndex="_activeTab" Class="weekend-desk-tabs" Rounded="true" Elevation="0">
+        <MudTabPanel Text="Timetable plan" Icon="@Icons.Material.Filled.CalendarMonth">
+            <div class="timetable-plan-callout">
+                <div class="timetable-plan-callout__icon"><MudIcon Icon="@Icons.Material.Filled.CalendarMonth" /></div>
+                <div>
+                    <MudText Typo="Typo.subtitle1">Classes planned for @_selectedDate.ToString("dddd, dd MMM")</MudText>
+                    <MudText Typo="Typo.body2">Prepare this day from the timetable, then edit any professor, subject, time, or class type. When every class is complete, submit the day to update attendance, reports, and payments.</MudText>
+                </div>
+                @if (_daySessions.Any())
+                {
+                    <div class="timetable-payment-preview">
+                        <span>Day payment</span>
+                        <strong>₹@DayPaymentTotal.ToString("N0")</strong>
+                        <small>after submission</small>
+                    </div>
+                }
+                <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.AddTask" OnClick="PrepareTimetableDay">Prepare this day</MudButton>
+            </div>
+
+            @if (TimetablePlanForSelectedDate.Any())
+            {
+                <div class="timetable-plan-grid">
+                    @foreach (var plan in TimetablePlanForSelectedDate)
+                    {
+                        var session = FindPlannedSession(plan);
+                        <MudPaper Elevation="0" Class="timetable-plan-card">
+                            <div class="timetable-plan-card__topline">
+                                <span class="@($"type-pill type-pill--{(session?.SessionType ?? plan.SessionType).ToLowerInvariant()}")">@(session?.SessionType ?? plan.SessionType)</span>
+                                @if (session is null)
+                                {
+                                    <span class="attendance-status">Not prepared</span>
+                                }
+                                else if (session.Status == SessionStatus.Conducted)
+                                {
+                                    <span class="attendance-status attendance-status--done">Conducted</span>
+                                }
+                                else
+                                {
+                                    <span class="attendance-status">Planned</span>
+                                }
+                            </div>
+                            <MudText Typo="Typo.subtitle1">@(session?.Course.CourseName ?? plan.CourseName)</MudText>
+                            <MudText Typo="Typo.body2">@(session?.Faculty.FullName ?? plan.FacultyLabel)</MudText>
+                            <div class="timetable-plan-card__footer">
+                                <div>
+                                    <span>@FormatTime(plan.StartTime) – @FormatTime(plan.EndTime)</span>
+                                    @if (session is not null)
+                                    {
+                                        <small class="timetable-plan-card__payment">₹@GetSessionPaymentAmount(session.Id).ToString("N0") payment</small>
+                                    }
+                                </div>
+                                @if (session is not null)
+                                {
+                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => OpenEditSession(session))">Edit</MudButton>
+                                }
+                            </div>
+                        </MudPaper>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="weekend-desk-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.EventBusy" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">No timetable is set for this date</MudText>
+                        <MudText Typo="Typo.body2">Choose Friday, Saturday, or Sunday to load the weekend timetable.</MudText>
+                    </div>
+                </div>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Class log" Icon="@Icons.Material.Filled.AddTask">
+            <div class="weekend-workflow-callout">
+                <div class="weekend-workflow-callout__icon"><MudIcon Icon="@Icons.Material.Filled.NightlightRound" /></div>
+                <div>
+                    <MudText Typo="Typo.subtitle1">Nightly class entry</MudText>
+                    <MudText Typo="Typo.body2">Add every lecture or practical that was actually conducted. You can use any professor, subject, and class type—nothing is locked to the timetable.</MudText>
+                </div>
+                <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenLogDialog">Add a class</MudButton>
+            </div>
+
+            @if (_daySessions.Any())
+            {
+                <div class="simple-table weekend-class-log-table">
+                    <MudDataGrid Items="@_daySessions" Dense="true" Hover="true" Elevation="0">
+                        <Columns>
+                            <TemplateColumn Title="Professor">
+                                <CellTemplate>
+                                    <MudText Typo="Typo.subtitle2">@context.Item.Faculty.FullName</MudText>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Class type">
+                                <CellTemplate>
+                                    <span class="@($"type-pill type-pill--{context.Item.SessionType.ToLowerInvariant()}")">@context.Item.SessionType</span>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <PropertyColumn Property="x => x.Course.CourseName" Title="Subject" />
+                            <TemplateColumn Title="Status">
+                                <CellTemplate>
+                                    <span class="@(context.Item.Status == SessionStatus.Conducted ? "attendance-status attendance-status--done" : "attendance-status")">
+                                        @(context.Item.Status == SessionStatus.Conducted ? "Conducted" : "Planned")
+                                    </span>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Attendance">
+                                <CellTemplate>
+                                    @{ var attendance = GetAttendanceSummary(context.Item.Id); }
+                                    @if (attendance?.IsAttendanceMarked == true)
+                                    {
+                                        <span class="attendance-count"><MudIcon Icon="@Icons.Material.Filled.Groups" /> @attendance.PresentCount/@attendance.StudentCount present</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="attendance-pending">Not marked</span>
+                                    }
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="">
+                                <CellTemplate>
+                                    @if (context.Item.Status != SessionStatus.Conducted)
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="@(() => MarkConducted(context.Item.Id))">Conducted</MudButton>
+                                    }
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                                   OnClick="@(() => OpenEditSession(context.Item))" aria-label="Edit class" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small" Color="Color.Default"
+                                                   OnClick="@(() => DeleteSession(context.Item.Id))" aria-label="Remove class" />
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                    </MudDataGrid>
+                </div>
+            }
+            else
+            {
+                <div class="weekend-desk-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoStories" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">No classes recorded for this date</MudText>
+                        <MudText Typo="Typo.body2">When the day is over, add the lectures and practicals that were conducted.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OpenLogDialog">Add a class</MudButton>
+                </div>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Student attendance" Icon="@Icons.Material.Filled.FactCheck">
+            <div class="attendance-section-heading">
+                <div>
+                    <span class="premium-eyebrow">Student register</span>
+                    <MudText Typo="Typo.h6">Mark attendance by class</MudText>
+                    <MudText Typo="Typo.body2">Open a class, then untick the students who were absent. The present count feeds straight into the night report.</MudText>
+                </div>
+                <span class="status-pill attendance-section-heading__count">@_attendanceSummaries.Count(summary => summary.IsAttendanceMarked) of @_attendanceSummaries.Count marked</span>
+            </div>
+
+            @if (_attendanceSummaries.Any())
+            {
+                <div class="attendance-session-grid">
+                    @foreach (var summary in _attendanceSummaries)
+                    {
+                        <MudPaper Elevation="0" Class="attendance-session-card">
+                            <div class="attendance-session-card__topline">
+                                <span class="@($"type-pill type-pill--{summary.SessionType.ToLowerInvariant()}")">@summary.SessionType</span>
+                                <span class="@(summary.IsAttendanceMarked ? "attendance-status attendance-status--done" : "attendance-status")">
+                                    @(summary.IsAttendanceMarked ? "Attendance saved" : "To be marked")
+                                </span>
+                            </div>
+                            <MudText Typo="Typo.subtitle1">@summary.CourseName</MudText>
+                            <MudText Typo="Typo.body2">@summary.FacultyName</MudText>
+                            <div class="attendance-session-card__footer">
+                                @if (summary.IsAttendanceMarked)
+                                {
+                                    <span class="attendance-count"><MudIcon Icon="@Icons.Material.Filled.Groups" /> @summary.PresentCount of @summary.StudentCount present</span>
+                                }
+                                else
+                                {
+                                    <span class="attendance-pending">Register not saved</span>
+                                }
+                                <MudButton Variant="@(summary.IsAttendanceMarked ? Variant.Outlined : Variant.Filled)" Color="Color.Primary"
+                                           Class="@(summary.IsAttendanceMarked ? string.Empty : "btn-gradient-primary")"
+                                           StartIcon="@(summary.IsAttendanceMarked ? Icons.Material.Filled.Edit : Icons.Material.Filled.FactCheck)"
+                                           OnClick="@(() => OpenAttendanceDialog(summary))">
+                                    @(summary.IsAttendanceMarked ? "Edit" : "Mark")
+                                </MudButton>
+                            </div>
+                        </MudPaper>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="weekend-desk-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.FactCheck" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Attendance becomes available after class entry</MudText>
+                        <MudText Typo="Typo.body2">Add the lecture or practical first, then its student register will appear here.</MudText>
+                    </div>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => _activeTab = 1)">Go to class log</MudButton>
+                </div>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Night report" Icon="@Icons.Material.Filled.Assessment">
+            <section class="night-report-hero">
+                <div>
+                    <span class="premium-eyebrow">Live report · @(_selectedDate.ToString("ddd, dd MMM"))</span>
+                    <MudText Typo="Typo.h5">Faculty activity report</MudText>
+                    <MudText Typo="Typo.body2">A clear end-of-day summary of who conducted lectures and practicals, plus the students recorded as present.</MudText>
+                </div>
+                <div class="night-report-hero__total">
+                    <span>Students attended</span>
+                    <strong>@_nightReport.Sum(row => row.TotalAttendance)</strong>
+                    <small>across all saved registers</small>
+                </div>
+            </section>
+
+            @if (_nightReport.Any())
+            {
+                <div class="simple-table night-report-table">
+                    <MudDataGrid Items="@_nightReport" Dense="true" Hover="true" Elevation="0">
+                        <Columns>
+                            <PropertyColumn Property="x => x.FacultyName" Title="Professor" />
+                            <TemplateColumn Title="Conducted">
+                                <CellTemplate>
+                                    <span class="class-count"><b>@context.Item.LectureCount</b> lectures · <b>@context.Item.PracticalCount</b> practicals</span>
+                                </CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Lecture attendance">
+                                <CellTemplate><span class="attendance-count">@context.Item.LectureAttendance students</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Practical attendance">
+                                <CellTemplate><span class="attendance-count">@context.Item.PracticalAttendance students</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="Register status">
+                                <CellTemplate>
+                                    <span class="@(context.Item.SessionsWithAttendance == context.Item.LectureCount + context.Item.PracticalCount ? "attendance-status attendance-status--done" : "attendance-status")">
+                                        @context.Item.SessionsWithAttendance/@(context.Item.LectureCount + context.Item.PracticalCount) saved
+                                    </span>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                    </MudDataGrid>
+                </div>
+            }
+            else
+            {
+                <div class="weekend-desk-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.Assessment" />
+                    <div>
+                        <MudText Typo="Typo.subtitle1">Your night report will appear here</MudText>
+                        <MudText Typo="Typo.body2">Record a class for this date to start building the faculty report.</MudText>
+                    </div>
+                </div>
+            }
+        </MudTabPanel>
+
+    </MudTabs>
+</MudContainer>
+
+<MudDialog @bind-Visible="_logDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon dialog-title-simple__icon--blue"><MudIcon Icon="@Icons.Material.Filled.AddTask" /></span>
+            <div>
+                <MudText Typo="Typo.h6">@(_editingSessionId.HasValue ? "Edit timetable class" : "Record conducted class")</MudText>
+                <MudText Typo="Typo.caption">@(_editingSessionId.HasValue ? "Update the actual professor, subject, time, or class type. Changes are reflected throughout Weekend Desk." : "Add what actually happened today—lecture or practical.")</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_newSessionDate" Label="Class date" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_newSessionType" Label="Class type" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true">
+                    <MudSelectItem Value="@("Lecture")">Lecture</MudSelectItem>
+                    <MudSelectItem Value="@("Tutorial")">Tutorial</MudSelectItem>
+                    <MudSelectItem Value="@("Practical")">Practical</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_newSessionFacultyId" Label="Professor" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true">
+                    @foreach (var faculty in _faculty.Where(faculty => faculty.IsActive))
+                    {
+                        <MudSelectItem Value="@faculty.Id">@faculty.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_newSessionCourseId" Label="Subject" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true">
+                    @foreach (var course in _courses)
+                    {
+                        <MudSelectItem Value="@course.Id">@course.CourseCode — @course.CourseName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="6">
+                <MudTimePicker @bind-Time="_newSessionStart" Label="Start time" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="6">
+                <MudTimePicker @bind-Time="_newSessionEnd" Label="End time" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+        </MudGrid>
+        <MudTextField @bind-Value="_newSessionNotes" Label="Notes (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="mt-2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _logDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveSession">@(_editingSessionId.HasValue ? "Save changes" : "Save class")</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-Visible="_submitDayDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon dialog-title-simple__icon--green"><MudIcon Icon="@Icons.Material.Filled.TaskAlt" /></span>
+            <div>
+                <MudText Typo="Typo.h6">Submit completed day</MudText>
+                <MudText Typo="Typo.caption">@_selectedDate.ToString("dddd, dd MMMM yyyy")</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="attendance-dialog-note">
+            <MudIcon Icon="@Icons.Material.Filled.Info" />
+            <span>This confirms @PlannedDaySessionCount planned class(es) as conducted. The night report and Payment Overview will update immediately.</span>
+        </div>
+        <MudText Typo="Typo.body2" Class="mt-3">Already recorded: <b>@ConductedDaySessionCount</b> conducted class(es). You can still correct a class later if needed.</MudText>
+        <div class="submit-day-payment-total">
+            <span>Payment for @_selectedDate.ToString("dd MMM")</span>
+            <strong>₹@DayPaymentTotal.ToString("N0")</strong>
+        </div>
+        <div class="submit-day-payment-list">
+            @foreach (var payment in DayPaymentSummary)
+            {
+                <div>
+                    <span>@payment.FacultyName · @payment.LectureCount lectures · @payment.PracticalCount practicals</span>
+                    <strong>₹@payment.Amount.ToString("N0")</strong>
+                </div>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _submitDayDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.TaskAlt" OnClick="SubmitCompletedDay">Submit day</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-Visible="_attendanceDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon dialog-title-simple__icon--green"><MudIcon Icon="@Icons.Material.Filled.FactCheck" /></span>
+            <div>
+                <MudText Typo="Typo.h6">Student attendance</MudText>
+                <MudText Typo="Typo.caption">@_attendanceSession?.CourseName · @_attendanceSession?.SessionType · @_attendanceSession?.FacultyName</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="attendance-dialog-note">
+            <MudIcon Icon="@Icons.Material.Filled.Info" />
+            <span>All active students are selected by default. Untick anyone who was absent, then save the register.</span>
+        </div>
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mt-3 mb-2">
+            <MudText Typo="Typo.subtitle2">@PresentStudentCount of @_attendanceStudents.Count marked present</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" OnClick="MarkAllPresent">Mark all present</MudButton>
+        </MudStack>
+        <div class="attendance-checklist">
+            @foreach (var student in _attendanceStudents)
+            {
+                <div class="attendance-checklist__row">
+                    <MudCheckBox @bind-Value="student.IsPresent" Color="Color.Primary" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">@student.FullName</MudText>
+                        <MudText Typo="Typo.caption">@student.StudentCode</MudText>
+                    </div>
+                    <span class="@(student.IsPresent ? "attendance-status attendance-status--done" : "attendance-status")">@(student.IsPresent ? "Present" : "Absent")</span>
+                </div>
+            }
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _attendanceDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveAttendance">Save attendance</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private readonly List<Session> _daySessions = new();
+    private Dictionary<DateTime, int> _weekendSessionCounts = new();
+    private List<DailySessionAttendanceSummary> _attendanceSummaries = new();
+    private List<FacultyNightReportRow> _nightReport = new();
+    private List<SessionPaymentAmount> _sessionPaymentAmounts = new();
+    private List<Faculty> _faculty = new();
+    private List<Course> _courses = new();
+    private DateTime _weekendStart = MostRecentFriday(DateTime.Today);
+    private DateTime _selectedDate = DateTime.Today;
+    private int _activeTab;
+    private bool _logDialogVisible;
+    private bool _attendanceDialogVisible;
+    private bool _submitDayDialogVisible;
+    private int? _editingSessionId;
+    private DateTime? _newSessionDate;
+    private int _newSessionFacultyId;
+    private int _newSessionCourseId;
+    private string _newSessionType = "Lecture";
+    private TimeSpan? _newSessionStart;
+    private TimeSpan? _newSessionEnd;
+    private string? _newSessionNotes;
+    private DailySessionAttendanceSummary? _attendanceSession;
+    private List<AttendanceStudentItem> _attendanceStudents = new();
+
+    private IEnumerable<DateTime> WeekendDates => Enumerable.Range(0, 3).Select(day => _weekendStart.AddDays(day));
+    private IEnumerable<TimetablePlanItem> TimetablePlanForSelectedDate =>
+        WeekendTimetable.Where(item => item.Day == _selectedDate.DayOfWeek);
+    private int PresentStudentCount => _attendanceStudents.Count(student => student.IsPresent);
+    private int PlannedDaySessionCount => _daySessions.Count(session => session.Status == SessionStatus.Scheduled);
+    private int ConductedDaySessionCount => _daySessions.Count(session => session.Status == SessionStatus.Conducted);
+    private bool CanSubmitDay => PlannedDaySessionCount > 0;
+    private decimal DayPaymentTotal => _sessionPaymentAmounts.Sum(item => item.Amount);
+    private IReadOnlyList<DayFacultyPaymentSummary> DayPaymentSummary => _sessionPaymentAmounts
+        .GroupBy(item => new { item.FacultyId, item.FacultyName })
+        .Select(group => new DayFacultyPaymentSummary(
+            group.Key.FacultyName,
+            group.Count(item => item.SessionType is "Lecture" or "Tutorial"),
+            group.Count(item => item.SessionType is not ("Lecture" or "Tutorial")),
+            group.Sum(item => item.Amount)))
+        .OrderBy(item => item.FacultyName)
+        .ToList();
+    private string SubmitDayButtonLabel => !_daySessions.Any()
+        ? "No classes to submit"
+        : CanSubmitDay ? "Submit completed day" : "Day submitted";
+    private string WeekendLabel => $"{_weekendStart:dd MMM} – {_weekendStart.AddDays(2):dd MMM yyyy}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _faculty = await FacultySvc.GetAllAsync();
+        _courses = await CourseSvc.GetAllAsync();
+        _selectedDate = WeekendDates.Contains(DateTime.Today) ? DateTime.Today : _weekendStart;
+        await LoadDayData();
+    }
+
+    private async Task LoadDayData()
+    {
+        _daySessions.Clear();
+        _daySessions.AddRange(await SessionSvc.GetAllAsync(_selectedDate, _selectedDate));
+        var weekendSessions = await SessionSvc.GetAllAsync(_weekendStart, _weekendStart.AddDays(2));
+        _weekendSessionCounts = weekendSessions
+            .GroupBy(session => session.Date.Date)
+            .ToDictionary(group => group.Key, group => group.Count());
+        _attendanceSummaries = await AttendanceSvc.GetDailySessionSummariesAsync(_selectedDate);
+        _nightReport = await AttendanceSvc.GetFacultyNightReportAsync(_selectedDate);
+        _sessionPaymentAmounts = await PaymentSvc.GetSessionPaymentAmountsAsync(_selectedDate);
+    }
+
+    private int DaySessionCount(DateTime date) => _weekendSessionCounts.GetValueOrDefault(date.Date);
+
+    private bool IsSelectedDate(DateTime date) => date.Date == _selectedDate.Date;
+
+    private async Task ShiftWeekend(int days)
+    {
+        _weekendStart = _weekendStart.AddDays(days);
+        await SetSelectedDate(_weekendStart);
+    }
+
+    private async Task ShowCurrentWeekend()
+    {
+        _weekendStart = MostRecentFriday(DateTime.Today);
+        await SetSelectedDate(WeekendDates.Contains(DateTime.Today) ? DateTime.Today : _weekendStart);
+    }
+
+    private async Task SetSelectedDate(DateTime date)
+    {
+        _selectedDate = date.Date;
+        await LoadDayData();
+    }
+
+    private async Task SelectCustomDate(DateTime? date)
+    {
+        if (!date.HasValue) return;
+        _selectedDate = date.Value.Date;
+        _weekendStart = MostRecentFriday(_selectedDate);
+        await LoadDayData();
+    }
+
+    private void OpenLogDialog()
+    {
+        _editingSessionId = null;
+        _newSessionDate = _selectedDate;
+        _newSessionType = "Lecture";
+        _newSessionFacultyId = _faculty.FirstOrDefault(faculty => faculty.IsActive)?.Id ?? 0;
+        _newSessionCourseId = _courses.FirstOrDefault()?.Id ?? 0;
+        _newSessionStart = new TimeSpan(8, 30, 0);
+        _newSessionEnd = new TimeSpan(9, 30, 0);
+        _newSessionNotes = null;
+        _logDialogVisible = true;
+    }
+
+    private void OpenEditSession(Session session)
+    {
+        _editingSessionId = session.Id;
+        _newSessionDate = session.Date;
+        _newSessionType = session.SessionType;
+        _newSessionFacultyId = session.FacultyId;
+        _newSessionCourseId = session.CourseId;
+        _newSessionStart = session.ActualStartTime;
+        _newSessionEnd = session.ActualEndTime;
+        _newSessionNotes = session.Notes;
+        _logDialogVisible = true;
+    }
+
+    private async Task SaveSession()
+    {
+        if (!_newSessionDate.HasValue || _newSessionFacultyId == 0 || _newSessionCourseId == 0) return;
+
+        var isEditing = _editingSessionId.HasValue;
+        try
+        {
+            if (isEditing)
+            {
+                var existing = await SessionSvc.GetByIdAsync(_editingSessionId!.Value);
+                if (existing is null) return;
+
+                var originalFacultyName = existing.Faculty.FullName;
+                var replacementFacultyName = _faculty.FirstOrDefault(faculty => faculty.Id == _newSessionFacultyId)?.FullName;
+                existing.Date = _newSessionDate.Value.Date;
+                existing.FacultyId = _newSessionFacultyId;
+                existing.CourseId = _newSessionCourseId;
+                existing.ActualStartTime = _newSessionStart ?? TimeSpan.Zero;
+                existing.ActualEndTime = _newSessionEnd ?? TimeSpan.Zero;
+                existing.SessionType = _newSessionType;
+                existing.Notes = _newSessionNotes;
+
+                if (!string.Equals(originalFacultyName, replacementFacultyName, StringComparison.Ordinal))
+                {
+                    var substitutionNote = $"Substitution: {replacementFacultyName} took this class in place of {originalFacultyName}.";
+                    existing.Notes = string.IsNullOrWhiteSpace(existing.Notes)
+                        ? substitutionNote
+                        : $"{existing.Notes.Trim()}\n\n{substitutionNote}";
+                }
+
+                await SessionSvc.UpdateAsync(existing);
+            }
+            else
+            {
+                await SessionSvc.LogSessionAsync(new Session
+                {
+                    Date = _newSessionDate.Value.Date,
+                    FacultyId = _newSessionFacultyId,
+                    CourseId = _newSessionCourseId,
+                    ActualStartTime = _newSessionStart ?? TimeSpan.Zero,
+                    ActualEndTime = _newSessionEnd ?? TimeSpan.Zero,
+                    SessionType = _newSessionType,
+                    Notes = _newSessionNotes,
+                    LoggedBy = "Administrator",
+                    IsApproved = true,
+                    ApprovedBy = "Administrator",
+                    ApprovedAt = DateTime.UtcNow
+                });
+            }
+
+            _logDialogVisible = false;
+            _selectedDate = _newSessionDate.Value.Date;
+            _weekendStart = MostRecentFriday(_selectedDate);
+            await LoadDayData();
+            Snackbar.Add(isEditing ? "Timetable class updated." : "Class recorded. Its attendance register is ready.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task MarkConducted(int sessionId)
+    {
+        await SessionSvc.MarkConductedAsync(sessionId);
+        await LoadDayData();
+        Snackbar.Add("Class confirmed as conducted. Its attendance register is ready.", Severity.Success);
+    }
+
+    private void OpenSubmitDayDialog()
+    {
+        if (!CanSubmitDay) return;
+        _submitDayDialogVisible = true;
+    }
+
+    private async Task SubmitCompletedDay()
+    {
+        try
+        {
+            await SessionSvc.SubmitCompletedDayAsync(_selectedDate);
+            _submitDayDialogVisible = false;
+            await LoadDayData();
+
+            Navigation.NavigateTo($"/payment-overview?date={_selectedDate:yyyy-MM-dd}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task PrepareTimetableDay()
+    {
+        var plannedClasses = TimetablePlanForSelectedDate.ToList();
+        if (!plannedClasses.Any())
+        {
+            Snackbar.Add("The timetable is available for Friday, Saturday, and Sunday.", Severity.Info);
+            return;
+        }
+
+        var added = 0;
+        foreach (var plannedClass in plannedClasses)
+        {
+            var course = _courses.FirstOrDefault(item => item.CourseCode == plannedClass.CourseCode);
+            var faculty = _faculty.FirstOrDefault(item => item.FullName == plannedClass.DefaultFacultyName && item.IsActive);
+            var alreadyPrepared = _daySessions.Any(session =>
+                session.ActualStartTime == plannedClass.StartTime &&
+                session.ActualEndTime == plannedClass.EndTime);
+
+            if (course is null || faculty is null || alreadyPrepared) continue;
+
+            await SessionSvc.ScheduleSessionAsync(new Session
+            {
+                Date = _selectedDate,
+                FacultyId = faculty.Id,
+                CourseId = course.Id,
+                ActualStartTime = plannedClass.StartTime,
+                ActualEndTime = plannedClass.EndTime,
+                SessionType = plannedClass.SessionType,
+                Notes = "Prepared from the weekend timetable.",
+                LoggedBy = "Administrator"
+            });
+            added++;
+        }
+
+        await LoadDayData();
+        Snackbar.Add(added > 0 ? $"{added} timetable classes prepared. Edit any class if there is a substitution." : "This day is already prepared.", added > 0 ? Severity.Success : Severity.Info);
+    }
+
+    private async Task DeleteSession(int sessionId)
+    {
+        await SessionSvc.DeleteAsync(sessionId);
+        await LoadDayData();
+        Snackbar.Add("Class removed.", Severity.Warning);
+    }
+
+    private DailySessionAttendanceSummary? GetAttendanceSummary(int sessionId) =>
+        _attendanceSummaries.FirstOrDefault(summary => summary.SessionId == sessionId);
+
+    private async Task OpenAttendanceDialog(DailySessionAttendanceSummary summary)
+    {
+        _attendanceSession = summary;
+        _attendanceStudents = await AttendanceSvc.GetAttendanceChecklistAsync(summary.SessionId);
+        _attendanceDialogVisible = true;
+    }
+
+    private void MarkAllPresent()
+    {
+        foreach (var student in _attendanceStudents)
+            student.IsPresent = true;
+    }
+
+    private async Task SaveAttendance()
+    {
+        if (_attendanceSession is null) return;
+
+        try
+        {
+            await AttendanceSvc.SaveAttendanceAsync(_attendanceSession.SessionId, _attendanceStudents);
+            _attendanceDialogVisible = false;
+            await LoadDayData();
+            Snackbar.Add("Attendance saved and included in the night report.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private Session? FindPlannedSession(TimetablePlanItem plan) =>
+        _daySessions.FirstOrDefault(session =>
+            session.ActualStartTime == plan.StartTime &&
+            session.ActualEndTime == plan.EndTime)
+        ?? _daySessions.FirstOrDefault(session =>
+            session.Course?.CourseCode == plan.CourseCode &&
+            session.SessionType == plan.SessionType &&
+            session.ActualStartTime == plan.StartTime);
+
+    private decimal GetSessionPaymentAmount(int sessionId) =>
+        _sessionPaymentAmounts.FirstOrDefault(item => item.SessionId == sessionId)?.Amount ?? 0m;
+
+    private static string FormatTime(TimeSpan time) => DateTime.Today.Add(time).ToString("h:mm tt");
+
+    private sealed record DayFacultyPaymentSummary(
+        string FacultyName,
+        int LectureCount,
+        int PracticalCount,
+        decimal Amount);
+
+    private sealed record TimetablePlanItem(
+        DayOfWeek Day,
+        string CourseCode,
+        string CourseName,
+        string FacultyLabel,
+        string DefaultFacultyName,
+        string SessionType,
+        TimeSpan StartTime,
+        TimeSpan EndTime);
+
+    private static readonly IReadOnlyList<TimetablePlanItem> WeekendTimetable = new List<TimetablePlanItem>
+    {
+        new(DayOfWeek.Friday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(8, 30, 0), new(9, 30, 0)),
+        new(DayOfWeek.Friday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(9, 30, 0), new(10, 30, 0)),
+        new(DayOfWeek.Friday, "MEC51050", "Research Methodology for Engineers", "Dr. Vitthal Gutte / Dr. M. D. Hambarde", "Dr. Vitthal Gutte", "Tutorial", new(10, 45, 0), new(11, 45, 0)),
+        new(DayOfWeek.Friday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Tutorial", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure", "Dr. Vivekanand M Bankolli / Mr. Siddu Patil", "Dr. Vivekanand M Bankolli", "Lecture", new(13, 30, 0), new(14, 30, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure", "Dr. Vivekanand M Bankolli / Mr. Siddu Patil", "Dr. Vivekanand M Bankolli", "Lecture", new(14, 30, 0), new(15, 30, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure", "Dr. Vivekanand M Bankolli / Mr. Siddu Patil", "Dr. Vivekanand M Bankolli", "Lecture", new(15, 45, 0), new(16, 45, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure Lab", "Mr. Abhishek Joshi", "Mr. Abhishek Joshi", "Practical", new(16, 45, 0), new(18, 45, 0)),
+
+        new(DayOfWeek.Saturday, "YOG10030", "Yoga", "Mr. Yatharth Verma / Dr. Jagdish Shinde", "Mr. Yatharth Verma", "Practical", new(8, 30, 0), new(9, 30, 0)),
+        new(DayOfWeek.Saturday, "PCE10040", "Scientific Studies of Mind, Matter, Spirit & Consciousness", "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", "Mr. Shashidhar Ramesh", "Lecture", new(9, 30, 0), new(10, 30, 0)),
+        new(DayOfWeek.Saturday, "MEC51050", "Research Methodology for Engineers", "Dr. Vitthal Gutte / Dr. M. D. Hambarde", "Dr. Vitthal Gutte", "Lecture", new(10, 45, 0), new(11, 45, 0)),
+        new(DayOfWeek.Saturday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Saturday, "CDS40030", "Project Lab-I", "Mr. Subodh B Patil / Mr. Abhishek Joshi", "Mr. Subodh B Patil", "Practical", new(13, 30, 0), new(17, 45, 0)),
+
+        new(DayOfWeek.Sunday, "YOG10030", "Yoga", "Mr. Yatharth Verma / Dr. Jagdish Shinde", "Mr. Yatharth Verma", "Practical", new(8, 30, 0), new(9, 30, 0)),
+        new(DayOfWeek.Sunday, "PCE10040", "Scientific Studies of Mind, Matter, Spirit & Consciousness", "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", "Mr. Shashidhar Ramesh", "Lecture", new(9, 30, 0), new(10, 30, 0)),
+        new(DayOfWeek.Sunday, "MEC51050", "Research Methodology for Engineers", "Dr. Vitthal Gutte / Dr. M. D. Hambarde", "Dr. Vitthal Gutte", "Lecture", new(10, 45, 0), new(11, 45, 0)),
+        new(DayOfWeek.Sunday, "MEC51050", "Research Methodology for Engineers", "Dr. Vitthal Gutte / Dr. M. D. Hambarde", "Dr. Vitthal Gutte", "Lecture", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Lecture", new(13, 30, 0), new(14, 30, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Lecture", new(14, 30, 0), new(15, 30, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Lecture", new(15, 45, 0), new(16, 45, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage Lab", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Practical", new(16, 45, 0), new(18, 45, 0))
+    };
+
+    private static DateTime MostRecentFriday(DateTime date)
+    {
+        var daysSinceFriday = ((int)date.DayOfWeek - (int)DayOfWeek.Friday + 7) % 7;
+        return date.Date.AddDays(-daysSinceFriday);
+    }
+}

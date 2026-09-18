@@ -1,0 +1,118 @@
+@page "/courses"
+@rendermode InteractiveServer
+@inject CourseService CourseSvc
+
+<PageTitle>DCMS — Courses</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Academic reference</span>
+            <MudText Typo="Typo.h4">Courses</MudText>
+            <MudText Typo="Typo.body2">Everything in the current semester, in one clear list.</MudText>
+        </div>
+        <span class="status-pill" style="background:#eef6fc; color:#1d5e96; border:1px solid #cce2f2;">
+            @_courses.Count courses · @_courses.Sum(course => course.Credits) credits
+        </span>
+    </section>
+
+    <section class="rate-progress-card">
+        <div class="rate-progress-card__icon"><MudIcon Icon="@Icons.Material.Filled.MenuBook" /></div>
+        <div class="rate-progress-card__copy">
+            <span>Current curriculum</span>
+            <MudText Typo="Typo.h6">M.Tech CSE · Semester I</MudText>
+            <MudText Typo="Typo.body2">See the course, weekly class mix, and assessment without digging through a long scheme.</MudText>
+        </div>
+        <div class="rate-progress-card__meter" aria-label="@_courses.Count courses in the curriculum">
+            <strong>@_courses.Count</strong>
+            <span>courses</span>
+        </div>
+    </section>
+
+    <MudPaper Elevation="0" Class="faculty-list-card">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4 faculty-list-card__heading">
+            <div>
+                <MudText Typo="Typo.h6">Course list</MudText>
+                <MudText Typo="Typo.body2">Use search to quickly find a subject or course code.</MudText>
+            </div>
+            <MudTextField @bind-Value="_searchText" Placeholder="Find a course" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="faculty-search" />
+        </MudStack>
+
+        @if (VisibleCourses.Any())
+        {
+            <div class="simple-table">
+                <MudDataGrid Items="@VisibleCourses" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <TemplateColumn Title="Course">
+                            <CellTemplate>
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.subtitle2">@context.Item.CourseName</MudText>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <span class="type-pill">@context.Item.CourseCode</span>
+                                        <MudText Typo="Typo.caption">@GetCategoryLabel(context.Item.CourseType)</MudText>
+                                    </MudStack>
+                                </MudStack>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Credits">
+                            <CellTemplate>
+                                <span class="fee-value">@context.Item.Credits</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Weekly classes">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2">@GetWeeklyMix(context.Item)</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Assessment">
+                            <CellTemplate>
+                                <MudText Typo="Typo.body2">@(string.IsNullOrWhiteSpace(context.Item.AssessmentScheme) ? "Not listed" : context.Item.AssessmentScheme)</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+        }
+        else
+        {
+            <div class="simple-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.MenuBook" />
+                <div>
+                    <MudText Typo="Typo.subtitle1">No courses found</MudText>
+                    <MudText Typo="Typo.body2">Try a different course name or code.</MudText>
+                </div>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private List<Course> _courses = new();
+    private string _searchText = "";
+
+    private IEnumerable<Course> VisibleCourses => string.IsNullOrWhiteSpace(_searchText)
+        ? _courses
+        : _courses.Where(course =>
+            course.CourseName.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+            course.CourseCode.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _courses = await CourseSvc.GetAllAsync();
+    }
+
+    private static string GetWeeklyMix(Course course)
+        => $"L {course.LectureHours} · T {course.TutorialHours} · P {course.PracticalHours} · J {course.ProjectHours}";
+
+    private static string GetCategoryLabel(string? type) => type switch
+    {
+        "PM" => "Program major",
+        "PC" => "Program core",
+        "PR" => "Project / lab",
+        "PE" => "Program elective",
+        "UC" => "University core",
+        _ => type ?? "Course"
+    };
+}

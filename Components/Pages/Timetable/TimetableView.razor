@@ -1,0 +1,190 @@
+@page "/timetable"
+@rendermode InteractiveServer
+
+<PageTitle>DCMS — Timetable</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Academic schedule</span>
+            <MudText Typo="Typo.h4">Timetable</MudText>
+            <MudText Typo="Typo.body2">A simple weekend view for Semester I classes.</MudText>
+        </div>
+        <span class="status-pill" style="background:#eef6fc; color:#1d5e96; border:1px solid #cce2f2;">Friday – Sunday</span>
+    </section>
+
+    <section class="rate-progress-card">
+        <div class="rate-progress-card__icon"><MudIcon Icon="@Icons.Material.Filled.CalendarMonth" /></div>
+        <div class="rate-progress-card__copy">
+            <span>Weekend programme</span>
+            <MudText Typo="Typo.h6">8:30 AM – 6:45 PM</MudText>
+            <MudText Typo="Typo.body2">Classrooms VY003 and VT303 · breaks are already marked in the schedule.</MudText>
+        </div>
+        <div class="rate-progress-card__meter" aria-label="Three teaching days">
+            <strong>3</strong>
+            <span>days</span>
+        </div>
+    </section>
+
+    <MudPaper Elevation="0" Class="faculty-list-card mb-5">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4 faculty-list-card__heading">
+            <div>
+                <MudText Typo="Typo.h6">Class schedule</MudText>
+                <MudText Typo="Typo.body2">Scroll across to view the full day.</MudText>
+            </div>
+        </MudStack>
+        <div class="simple-table" style="overflow-x: auto;">
+        <MudTable Items="@_scheduleRows" Dense="true" Hover="true" Bordered="true" Elevation="0">
+            <HeaderContent>
+                <MudTh Style="font-weight: 800; min-width: 110px;">Day</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 120px;">08:30 - 09:30</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 120px;">09:30 - 10:30</MudTh>
+                <MudTh Style="font-weight: 600; background: #F8FAFC !important; color: #94A3B8 !important; min-width: 80px; text-align: center;">10:30 - 10:45</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 120px;">10:45 - 11:45</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 120px;">11:45 - 12:45</MudTh>
+                <MudTh Style="font-weight: 600; background: #F8FAFC !important; color: #94A3B8 !important; min-width: 80px; text-align: center;">12:45 - 01:30</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 130px;">01:30 - 02:30</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 130px;">02:30 - 03:30</MudTh>
+                <MudTh Style="font-weight: 600; background: #F8FAFC !important; color: #94A3B8 !important; min-width: 80px; text-align: center;">03:30 - 03:45</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 130px;">03:45 - 04:45</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 130px;">04:45 - 05:45</MudTh>
+                <MudTh Style="font-weight: 700; min-width: 130px;">05:45 - 06:45</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd Style="font-weight: 800; background: #F1F5F9; color: #0F172A;">@context.Day</MudTd>
+                <MudTd><span class="status-pill" style="@context.S1Style">@context.Slot1</span></MudTd>
+                <MudTd><span class="status-pill" style="@context.S2Style">@context.Slot2</span></MudTd>
+                <MudTd Style="background: #F8FAFC; text-align: center; color: #94A3B8; font-size: 0.75rem;">Break</MudTd>
+                <MudTd><span class="status-pill" style="@context.S3Style">@context.Slot3</span></MudTd>
+                <MudTd><span class="status-pill" style="@context.S4Style">@context.Slot4</span></MudTd>
+                <MudTd Style="background: #F8FAFC; text-align: center; color: #94A3B8; font-size: 0.75rem;">Lunch</MudTd>
+                <MudTd><span class="status-pill" style="@context.S5Style">@context.Slot5</span></MudTd>
+                <MudTd><span class="status-pill" style="@context.S6Style">@context.Slot6</span></MudTd>
+                <MudTd Style="background: #F8FAFC; text-align: center; color: #94A3B8; font-size: 0.75rem;">Break</MudTd>
+                <MudTd><span class="status-pill" style="@context.S7Style">@context.Slot7</span></MudTd>
+                <MudTd><span class="status-pill" style="@context.S8Style">@context.Slot8</span></MudTd>
+                <MudTd><span class="status-pill" style="@context.S9Style">@context.Slot9</span></MudTd>
+            </RowTemplate>
+        </MudTable>
+        </div>
+    </MudPaper>
+
+    <MudExpansionPanels Class="payroll-history">
+        <MudExpansionPanel Text="Course guide and professors">
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="d-block mb-4">Use this guide when you need to decode a subject abbreviation in the timetable.</MudText>
+
+        <MudGrid>
+            @foreach (var item in _legend)
+            {
+                <MudItem xs="12" sm="6" md="3">
+                    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 14px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+                        <div>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <span class="status-pill" style="@item.BadgeStyle">@item.Code</span>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Text" Color="Color.Default">@item.Category</MudChip>
+                            </MudStack>
+                            <MudText Typo="Typo.subtitle2" Style="font-weight: 700; color: #0F172A; margin-top: 8px;">
+                                @item.SubjectName
+                            </MudText>
+                        </div>
+                        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #E2E8F0;">
+                            <MudText Typo="Typo.caption" Style="color: #64748B; font-weight: 600; display: block;">
+                                👤 @item.FacultyName
+                            </MudText>
+                        </div>
+                    </div>
+                </MudItem>
+            }
+        </MudGrid>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudContainer>
+
+@code {
+    public class ScheduleRow
+    {
+        public string Day { get; set; } = "";
+        public string Slot1 { get; set; } = "";
+        public string S1Style { get; set; } = "";
+        public string Slot2 { get; set; } = "";
+        public string S2Style { get; set; } = "";
+        public string Slot3 { get; set; } = "";
+        public string S3Style { get; set; } = "";
+        public string Slot4 { get; set; } = "";
+        public string S4Style { get; set; } = "";
+        public string Slot5 { get; set; } = "";
+        public string S5Style { get; set; } = "";
+        public string Slot6 { get; set; } = "";
+        public string S6Style { get; set; } = "";
+        public string Slot7 { get; set; } = "";
+        public string S7Style { get; set; } = "";
+        public string Slot8 { get; set; } = "";
+        public string S8Style { get; set; } = "";
+        public string Slot9 { get; set; } = "";
+        public string S9Style { get; set; } = "";
+    }
+
+    public class LegendItem
+    {
+        public string Code { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string SubjectName { get; set; } = "";
+        public string FacultyName { get; set; } = "";
+        public string BadgeStyle { get; set; } = "";
+    }
+
+    private readonly List<ScheduleRow> _scheduleRows = new()
+    {
+        new ScheduleRow
+        {
+            Day = "Friday",
+            Slot1 = "AM (GB)", S1Style = "background: #EEF2FF; color: #4F46E5;",
+            Slot2 = "AM (GB)", S2Style = "background: #EEF2FF; color: #4F46E5;",
+            Slot3 = "RM Tut (VG/MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
+            Slot4 = "AM Tut (GB)", S4Style = "background: #EEF2FF; color: #4F46E5;",
+            Slot5 = "ADC & CIE (VMB/SP)", S5Style = "background: #ECFDF5; color: #047857;",
+            Slot6 = "ADC & CIE (VMB/SP)", S6Style = "background: #ECFDF5; color: #047857;",
+            Slot7 = "ADC & CIE (VMB/SP)", S7Style = "background: #ECFDF5; color: #047857;",
+            Slot8 = "ADC Lab (AJ)", S8Style = "background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0;",
+            Slot9 = "ADC Lab (AJ)", S9Style = "background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0;"
+        },
+        new ScheduleRow
+        {
+            Day = "Saturday",
+            Slot1 = "Yoga (YV/JS)", S1Style = "background: #ECFEFF; color: #0891B2;",
+            Slot2 = "SSM (SR/JS)", S2Style = "background: #FFFBEB; color: #D97706;",
+            Slot3 = "RM (VG/MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
+            Slot4 = "AM (GB)", S4Style = "background: #EEF2FF; color: #4F46E5;",
+            Slot5 = "Proj Lab-I (SBP/AJ)", S5Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot6 = "Proj Lab-I (SBP/AJ)", S6Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot7 = "Proj Lab-I (SBP/AJ)", S7Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot8 = "Proj Lab-I (SBP/AJ)", S8Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot9 = "—", S9Style = "color: #CBD5E1;"
+        },
+        new ScheduleRow
+        {
+            Day = "Sunday",
+            Slot1 = "Yoga (YV/JS)", S1Style = "background: #ECFEFF; color: #0891B2;",
+            Slot2 = "SSM (SR/JS)", S2Style = "background: #FFFBEB; color: #D97706;",
+            Slot3 = "RM (VG/MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
+            Slot4 = "RM (VG/MDH)", S4Style = "background: #FDF4FF; color: #C026D3;",
+            Slot5 = "ACC & DSS (VPN)", S5Style = "background: #FEF2F2; color: #DC2626;",
+            Slot6 = "ACC & DSS (VPN)", S6Style = "background: #FEF2F2; color: #DC2626;",
+            Slot7 = "ACC & DSS (VPN)", S7Style = "background: #FEF2F2; color: #DC2626;",
+            Slot8 = "ACC Lab (VPN)", S8Style = "background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;",
+            Slot9 = "ACC Lab (VPN)", S9Style = "background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;"
+        }
+    };
+
+    private readonly List<LegendItem> _legend = new()
+    {
+        new LegendItem { Code = "ADC & CIE", Category = "Theory (3 Hrs)", SubjectName = "Advance Data Centre and Cloud Infra Engg", FacultyName = "Dr. Vivekanand Bankolli / Mr. Siddu Patil", BadgeStyle = "background: #ECFDF5; color: #047857;" },
+        new LegendItem { Code = "ADC Lab", Category = "Lab (2 Hrs)", SubjectName = "ADC & CIE Practical Laboratory", FacultyName = "Mr. Abhishek Joshi", BadgeStyle = "background: #F0FDF4; color: #166534;" },
+        new LegendItem { Code = "ACC & DSS", Category = "Theory & Lab", SubjectName = "Advanced Cloud Computing & Data Storage", FacultyName = "Mr. Vivekanand P Navadagi", BadgeStyle = "background: #FEF2F2; color: #DC2626;" },
+        new LegendItem { Code = "Project Lab-I", Category = "Project (4 Hrs)", SubjectName = "Project Lab-I Problem Definition", FacultyName = "Mr. Subodh B Patil / Mr. Abhishek Joshi", BadgeStyle = "background: #F1F5F9; color: #0F172A;" },
+        new LegendItem { Code = "AM", Category = "Maths (4 Hrs)", SubjectName = "Advanced Mathematics & Tutorial", FacultyName = "Dr. Ganesh Birajdar (MIT-WPU)", BadgeStyle = "background: #EEF2FF; color: #4F46E5;" },
+        new LegendItem { Code = "RM", Category = "Research (4 Hrs)", SubjectName = "Research Methodology for Engineers", FacultyName = "Dr. Vitthal Gutte / Dr. M.D. Hambarde", BadgeStyle = "background: #FDF4FF; color: #C026D3;" },
+        new LegendItem { Code = "SSM", Category = "Peace (2 Hrs)", SubjectName = "Scientific Studies of Mind, Matter & Spirit", FacultyName = "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", BadgeStyle = "background: #FFFBEB; color: #D97706;" },
+        new LegendItem { Code = "YOGA", Category = "Yoga (2 Hrs)", SubjectName = "Yoga & Holistic Well-being", FacultyName = "Mr. Yatharth Verma / Dr. Jagdish Shinde", BadgeStyle = "background: #ECFEFF; color: #0891B2;" }
+    };
+}

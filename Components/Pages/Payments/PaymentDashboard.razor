@@ -1,0 +1,560 @@
+@page "/payments"
+@rendermode InteractiveServer
+@inject PaymentService PaymentSvc
+@inject CourseService CourseSvc
+@inject ISnackbar Snackbar
+
+<PageTitle>DCMS — Payroll</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Step 3 · Monthly payment</span>
+            <MudText Typo="Typo.h4">Payroll</MudText>
+            <MudText Typo="Typo.body2">Review completed classes, then track every professor's payment at month end.</MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Add" OnClick="OpenCreateDialog">
+            Create monthly payroll
+        </MudButton>
+    </section>
+
+    @if (_periods.Any())
+    {
+        var currentPeriod = _periods.First();
+        <section class="payroll-focus-card">
+            <div class="payroll-focus-card__topline">
+                <span>Current payroll</span>
+                <span class="status-pill" style="@GetStatusStyle(currentPeriod.Status)">@GetPlainStatus(currentPeriod.Status)</span>
+            </div>
+            <MudGrid>
+                <MudItem xs="12" md="7">
+                    <MudText Typo="Typo.h4">@currentPeriod.PeriodName</MudText>
+                    <MudText Typo="Typo.body2">@currentPeriod.StartDate.ToString("dd MMM yyyy") – @currentPeriod.EndDate.ToString("dd MMM yyyy")</MudText>
+                    <MudText Typo="Typo.body1" Class="payroll-focus-card__hint">@GetPeriodHint(currentPeriod.Status)</MudText>
+                </MudItem>
+                <MudItem xs="12" md="5">
+                    <div class="payroll-focus-card__amount">
+                        <span>@(_lineItems.Any() ? "Total payable" : "Estimated payable")</span>
+                        <strong>₹@(_selectedPeriodName == currentPeriod.PeriodName ? (_lineItems.Any() ? _lineItems.Sum(item => item.NetPayable) : PreviewPaymentAmount).ToString("N0") : "—")</strong>
+                        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" Disabled="@(currentPeriod.Status == PaymentPeriodStatus.Paid)" OnClick="@(() => AdvancePeriod(currentPeriod))">
+                            @GetPrimaryAction(currentPeriod.Status)
+                        </MudButton>
+                    </div>
+                </MudItem>
+            </MudGrid>
+        </section>
+    }
+    else
+    {
+        <section class="payroll-empty-card">
+            <div class="payroll-empty-card__icon"><MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" /></div>
+            <div>
+                <span class="premium-eyebrow">Ready when you are</span>
+                <MudText Typo="Typo.h5">Create this month's payroll</MudText>
+                <MudText Typo="Typo.body2">Choose the month, then calculate payments from the classes you logged.</MudText>
+            </div>
+            <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="OpenCreateDialog">Create payroll</MudButton>
+        </section>
+    }
+
+    <section id="timetable-payment-forecast" class="timetable-payment-forecast" aria-label="Timetable based payment forecast">
+        <div class="timetable-payment-forecast__heading">
+            <div>
+                <span class="premium-eyebrow">Based on the Friday–Sunday timetable</span>
+                <MudText Typo="Typo.h5">Expected month-end payment</MudText>
+                <MudText Typo="Typo.body2">This forecast counts every scheduled lecture and practical in the selected month, before you start logging completed classes.</MudText>
+            </div>
+            <MudButton Href="/timetable" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CalendarMonth">
+                View timetable
+            </MudButton>
+        </div>
+
+        <div class="timetable-payment-forecast__period">
+            <MudIcon Icon="@Icons.Material.Filled.DateRange" />
+            <span>Forecast for <strong>@_previewPeriodName</strong></span>
+        </div>
+
+        <MudGrid Class="timetable-payment-forecast__summary">
+            <MudItem xs="12" sm="4">
+                <div class="timetable-forecast-stat timetable-forecast-stat--amount">
+                    <span>Expected payout</span>
+                    <strong>₹@TimetableForecastAmount.ToString("N0")</strong>
+                    <small>For professors with fees set</small>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <div class="timetable-forecast-stat timetable-forecast-stat--lecture">
+                    <span>Scheduled lectures</span>
+                    <strong>@TimetableForecastLectures</strong>
+                    <small>Across Friday–Sunday</small>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <div class="timetable-forecast-stat timetable-forecast-stat--practical">
+                    <span>Scheduled practicals</span>
+                    <strong>@TimetableForecastPracticals</strong>
+                    <small>@TimetableForecastMissingRates fee@(TimetableForecastMissingRates == 1 ? string.Empty : "s") still to set</small>
+                </div>
+            </MudItem>
+        </MudGrid>
+
+        <div class="simple-table">
+            <MudDataGrid Items="@_timetableForecast" Dense="true" Hover="true" Elevation="0">
+                <Columns>
+                    <PropertyColumn Property="x => x.FacultyName" Title="Professor" />
+                    <TemplateColumn Title="Each teaching week">
+                        <CellTemplate><span class="class-count"><b>@context.Item.WeeklyLectures</b> lectures · <b>@context.Item.WeeklyPracticals</b> practicals</span></CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="This month">
+                        <CellTemplate><span class="class-count"><b>@context.Item.MonthlyLectures</b> lectures · <b>@context.Item.MonthlyPracticals</b> practicals</span></CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Fees">
+                        <CellTemplate>
+                            @if (context.Item.HasRate)
+                            {
+                                <span class="fee-inline">L ₹@context.Item.LectureRate.ToString("N0")</span>
+                                <span class="fee-inline fee-inline--blue">P ₹@context.Item.PracticalRate.ToString("N0")</span>
+                            }
+                            else
+                            {
+                                <a class="forecast-rate-missing" href="/faculty">Set fees</a>
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Expected payment">
+                        <CellTemplate>
+                            @if (context.Item.HasRate)
+                            {
+                                <span class="payable-total">₹@context.Item.ExpectedAmount.ToString("N0")</span>
+                            }
+                            else
+                            {
+                                <span class="professor-payment-waiting">Fee required</span>
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+            </MudDataGrid>
+        </div>
+
+        <div class="timetable-payment-forecast__note">
+            <MudIcon Icon="@Icons.Material.Filled.Info" />
+            <span>Paired professors shown in the timetable are included individually. Theory and tutorial slots are counted per lecture; each practical block is counted once.</span>
+        </div>
+    </section>
+
+    @if (_activeSemester is not null)
+    {
+        <section id="semester-payment-forecast" class="semester-payment-forecast" aria-label="Semester payment forecast">
+            <div class="semester-payment-forecast__heading">
+                <div>
+                    <span class="premium-eyebrow">Semester-wise payment</span>
+                    <MudText Typo="Typo.h5">@_activeSemester.Name · expected professor payout</MudText>
+                    <MudText Typo="Typo.body2">@_activeSemester.StartDate.ToString("dd MMM yyyy") – @_activeSemester.EndDate.ToString("dd MMM yyyy") · calculated from the same Friday–Sunday timetable.</MudText>
+                </div>
+                <span class="semester-payment-forecast__year">AY @_activeSemester.AcademicYear</span>
+            </div>
+
+            <MudGrid Class="semester-payment-forecast__summary">
+                <MudItem xs="12" sm="4">
+                    <div class="semester-forecast-stat semester-forecast-stat--amount">
+                        <span>Expected semester payout</span>
+                        <strong>₹@SemesterForecastAmount.ToString("N0")</strong>
+                        <small>Using the current fees</small>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <div class="semester-forecast-stat semester-forecast-stat--lecture">
+                        <span>Scheduled lectures</span>
+                        <strong>@SemesterForecastLectures</strong>
+                        <small>For the full semester</small>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <div class="semester-forecast-stat semester-forecast-stat--practical">
+                        <span>Scheduled practicals</span>
+                        <strong>@SemesterForecastPracticals</strong>
+                        <small>@SemesterForecastMissingRates fee@(SemesterForecastMissingRates == 1 ? string.Empty : "s") still to set</small>
+                    </div>
+                </MudItem>
+            </MudGrid>
+
+            <div class="simple-table">
+                <MudDataGrid Items="@_semesterForecast" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <PropertyColumn Property="x => x.FacultyName" Title="Professor" />
+                        <TemplateColumn Title="Semester lectures">
+                            <CellTemplate><span class="class-count"><b>@context.Item.MonthlyLectures</b> lectures</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Semester practicals">
+                            <CellTemplate><span class="class-count"><b>@context.Item.MonthlyPracticals</b> practicals</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Expected payment">
+                            <CellTemplate>
+                                @if (context.Item.HasRate)
+                                {
+                                    <span class="payable-total">₹@context.Item.ExpectedAmount.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <a class="forecast-rate-missing" href="/faculty">Set fees</a>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+
+            <MudText Typo="Typo.caption" Class="semester-payment-forecast__note">This is a planning total. Month-end payments should still be calculated from the classes actually completed.</MudText>
+        </section>
+    }
+
+    <MudPaper Elevation="0" Class="faculty-payment-tracker">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="faculty-payment-tracker__heading">
+            <div>
+                <span class="premium-eyebrow">Professor payment list</span>
+                <MudText Typo="Typo.h6">Monthly payment at a glance</MudText>
+                <MudText Typo="Typo.body2">Every professor is listed here. Their amount is based on the lectures and practicals completed this month.</MudText>
+            </div>
+            <span class="faculty-payment-tracker__month">@_previewPeriodName</span>
+        </MudStack>
+
+        @if (_lineItems.Any())
+        {
+            <MudGrid Class="faculty-payment-tracker__summary">
+                <MudItem xs="12" sm="4">
+                    <div class="professor-payment-stat professor-payment-stat--due">
+                        <span>Still to pay</span>
+                        <strong>₹@RemainingPaymentAmount.ToString("N0")</strong>
+                        <small>@UnpaidProfessorCount professor@(UnpaidProfessorCount == 1 ? string.Empty : "s")</small>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <div class="professor-payment-stat professor-payment-stat--paid">
+                        <span>Paid</span>
+                        <strong>₹@PaidPaymentAmount.ToString("N0")</strong>
+                        <small>@PaidProfessorCount professor@(PaidProfessorCount == 1 ? string.Empty : "s")</small>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <div class="professor-payment-stat professor-payment-stat--total">
+                        <span>Total for month</span>
+                        <strong>₹@TotalPaymentAmount.ToString("N0")</strong>
+                        <small>@_lineItems.Count professor@(_lineItems.Count == 1 ? string.Empty : "s")</small>
+                    </div>
+                </MudItem>
+            </MudGrid>
+
+            <div class="simple-table">
+                <MudDataGrid Items="@_lineItems" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <TemplateColumn Title="Professor">
+                            <CellTemplate><MudText Typo="Typo.subtitle2">@context.Item.Faculty.FullName</MudText></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Classes done">
+                            <CellTemplate><span class="class-count"><b>@context.Item.LectureCount</b> lectures · <b>@context.Item.PracticalCount</b> practicals</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Amount">
+                            <CellTemplate><span class="payable-total">₹@context.Item.NetPayable.ToString("N0")</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Payment">
+                            <CellTemplate>
+                                @if (context.Item.NetPayable <= 0)
+                                {
+                                    <span class="professor-payment-waiting">No payment due</span>
+                                }
+                                else
+                                {
+                                    <div class="professor-payment-status">
+                                        <span class="status-pill" style="@GetLinePaymentStyle(context.Item)">@(context.Item.IsPaid ? "Paid" : "To pay")</span>
+                                        @if (context.Item.IsPaid && context.Item.PaidAt.HasValue)
+                                        {
+                                            <small>Paid @context.Item.PaidAt.Value.ToLocalTime().ToString("dd MMM yyyy")</small>
+                                        }
+                                    </div>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="">
+                            <CellTemplate>
+                                @if (context.Item.NetPayable > 0 && !context.Item.IsPaid && CanMarkIndividualPayments)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Filled" Class="btn-payment-complete" StartIcon="@Icons.Material.Filled.Check" OnClick="@(() => MarkProfessorPaid(context.Item))">Mark paid</MudButton>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+        }
+        else
+        {
+            <MudGrid Class="faculty-payment-tracker__summary">
+                <MudItem xs="12" sm="4">
+                    <div class="professor-payment-stat professor-payment-stat--total">
+                        <span>Estimated for month</span>
+                        <strong>₹@PreviewPaymentAmount.ToString("N0")</strong>
+                        <small>From completed classes</small>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <div class="professor-payment-stat professor-payment-stat--due">
+                        <span>Lectures done</span>
+                        <strong>@PreviewLectureCount</strong>
+                        <small>This month</small>
+                    </div>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <div class="professor-payment-stat professor-payment-stat--paid">
+                        <span>Practicals done</span>
+                        <strong>@PreviewPracticalCount</strong>
+                        <small>This month</small>
+                    </div>
+                </MudItem>
+            </MudGrid>
+
+            <div class="simple-table">
+                <MudDataGrid Items="@_monthlyPreview" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <PropertyColumn Property="x => x.FacultyName" Title="Professor" />
+                        <TemplateColumn Title="Classes done">
+                            <CellTemplate><span class="class-count"><b>@context.Item.LectureCount</b> lectures · <b>@context.Item.PracticalCount</b> practicals</span></CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Fees">
+                            <CellTemplate>
+                                <span class="fee-inline">L ₹@context.Item.LectureRate.ToString("N0")</span>
+                                <span class="fee-inline fee-inline--blue">P ₹@context.Item.PracticalRate.ToString("N0")</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Estimated amount">
+                            <CellTemplate><span class="payable-total">₹@context.Item.PayableAmount.ToString("N0")</span></CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+            <MudText Typo="Typo.caption" Class="professor-payment-preview-note">This is a live estimate. Select <b>Calculate payroll</b> above when the month is complete to confirm it.</MudText>
+        }
+    </MudPaper>
+
+    @if (_periods.Count > 1)
+    {
+        <MudExpansionPanels Class="payroll-history">
+            <MudExpansionPanel Text="View earlier payrolls">
+                <div class="simple-table">
+                    <MudDataGrid Items="@_periods.Skip(1)" Dense="true" Hover="true" Elevation="0">
+                        <Columns>
+                            <PropertyColumn Property="x => x.PeriodName" Title="Month" />
+                            <PropertyColumn Property="x => x.StartDate" Title="From" Format="dd MMM yyyy" />
+                            <PropertyColumn Property="x => x.EndDate" Title="To" Format="dd MMM yyyy" />
+                            <TemplateColumn Title="Status">
+                                <CellTemplate><span class="status-pill" style="@GetStatusStyle(context.Item.Status)">@GetPlainStatus(context.Item.Status)</span></CellTemplate>
+                            </TemplateColumn>
+                            <TemplateColumn Title="">
+                                <CellTemplate><MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => ViewDetails(context.Item.Id))">View</MudButton></CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                    </MudDataGrid>
+                </div>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    }
+</MudContainer>
+
+<MudDialog @bind-Visible="_createDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon dialog-title-simple__icon--green"><MudIcon Icon="@Icons.Material.Filled.AccountBalanceWallet" /></span>
+            <div>
+                <MudText Typo="Typo.h6">Create monthly payroll</MudText>
+                <MudText Typo="Typo.caption">Select the month you want to pay.</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_newPeriodName" Label="Payroll name" Placeholder="e.g. August 2026" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
+        <MudGrid>
+            <MudItem xs="12" sm="6"><MudDatePicker @bind-Date="_newPeriodStart" Label="From" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+            <MudItem xs="12" sm="6"><MudDatePicker @bind-Date="_newPeriodEnd" Label="To" Variant="Variant.Outlined" Margin="Margin.Dense" /></MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _createDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="CreatePeriod">Create payroll</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<PaymentPeriod> _periods = new();
+    private List<PaymentLineItem> _lineItems = new();
+    private List<MonthlyPaymentPreview> _monthlyPreview = new();
+    private List<TimetablePaymentForecast> _timetableForecast = new();
+    private List<TimetablePaymentForecast> _semesterForecast = new();
+    private PaymentPeriod? _selectedPeriod;
+    private Semester? _activeSemester;
+    private string _selectedPeriodName = "";
+    private string _previewPeriodName = DateTime.Today.ToString("MMMM yyyy");
+    private bool _createDialogVisible;
+    private string _newPeriodName = "August 2026";
+    private DateTime? _newPeriodStart = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    private DateTime? _newPeriodEnd = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
+
+    protected override async Task OnInitializedAsync()
+    {
+        _activeSemester = await CourseSvc.GetActiveSemesterAsync();
+        if (_activeSemester is not null)
+            _semesterForecast = await PaymentSvc.GetTimetablePaymentForecastAsync(_activeSemester.StartDate, _activeSemester.EndDate);
+
+        _periods = await PaymentSvc.GetPeriodsAsync();
+        if (_periods.Any())
+            await ViewDetails(_periods.First().Id);
+        else
+            await LoadMonthlyPreview(DateTime.Today);
+    }
+
+    private void OpenCreateDialog()
+    {
+        _newPeriodName = DateTime.Now.ToString("MMMM yyyy");
+        _newPeriodStart = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+        _newPeriodEnd = new DateTime(DateTime.Now.Year, DateTime.Now.Month, DateTime.DaysInMonth(DateTime.Now.Year, DateTime.Now.Month));
+        _createDialogVisible = true;
+    }
+
+    private async Task CreatePeriod()
+    {
+        if (string.IsNullOrWhiteSpace(_newPeriodName) || !_newPeriodStart.HasValue || !_newPeriodEnd.HasValue) return;
+
+        try
+        {
+            var period = await PaymentSvc.CreatePeriodAsync(_newPeriodName, _newPeriodStart.Value, _newPeriodEnd.Value);
+            _createDialogVisible = false;
+            _periods = await PaymentSvc.GetPeriodsAsync();
+            await ViewDetails(period.Id);
+            Snackbar.Add("Payroll created. Calculate it when all classes are logged.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task AdvancePeriod(PaymentPeriod period)
+    {
+        try
+        {
+            if (period.Status == PaymentPeriodStatus.Open)
+            {
+                await PaymentSvc.CalculatePaymentsAsync(period.Id);
+                Snackbar.Add("Payroll calculated.", Severity.Success);
+            }
+            else if (period.Status == PaymentPeriodStatus.Calculated)
+            {
+                await PaymentSvc.ApprovePeriodAsync(period.Id);
+                Snackbar.Add("Payroll approved.", Severity.Success);
+            }
+            else if (period.Status == PaymentPeriodStatus.Approved)
+            {
+                await PaymentSvc.MarkAsPaidAsync(period.Id);
+                Snackbar.Add("Payroll marked as paid.", Severity.Success);
+            }
+
+            _periods = await PaymentSvc.GetPeriodsAsync();
+            await ViewDetails(period.Id);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ViewDetails(int periodId)
+    {
+        _selectedPeriod = _periods.FirstOrDefault(item => item.Id == periodId);
+        _selectedPeriodName = _selectedPeriod?.PeriodName ?? "";
+        _lineItems = await PaymentSvc.GetLineItemsAsync(periodId);
+        if (_selectedPeriod is not null)
+            await LoadMonthlyPreview(_selectedPeriod.StartDate, _selectedPeriod.EndDate, _selectedPeriod.PeriodName);
+    }
+
+    private async Task LoadMonthlyPreview(DateTime date, DateTime? endDate = null, string? periodName = null)
+    {
+        var start = endDate.HasValue ? date.Date : new DateTime(date.Year, date.Month, 1);
+        var end = endDate ?? new DateTime(date.Year, date.Month, DateTime.DaysInMonth(date.Year, date.Month));
+        _previewPeriodName = periodName ?? start.ToString("MMMM yyyy");
+        _monthlyPreview = await PaymentSvc.GetMonthlyPreviewAsync(start, end);
+        _timetableForecast = await PaymentSvc.GetTimetablePaymentForecastAsync(start, end);
+    }
+
+    private IEnumerable<PaymentLineItem> PayableLineItems => _lineItems.Where(item => item.NetPayable > 0);
+    private decimal TotalPaymentAmount => PayableLineItems.Sum(item => item.NetPayable);
+    private decimal PaidPaymentAmount => PayableLineItems.Where(item => item.IsPaid).Sum(item => item.NetPayable);
+    private decimal RemainingPaymentAmount => TotalPaymentAmount - PaidPaymentAmount;
+    private int PaidProfessorCount => PayableLineItems.Count(item => item.IsPaid);
+    private int UnpaidProfessorCount => PayableLineItems.Count(item => !item.IsPaid);
+    private bool CanMarkIndividualPayments => _selectedPeriod?.Status is PaymentPeriodStatus.Approved or PaymentPeriodStatus.Paid;
+    private decimal PreviewPaymentAmount => _monthlyPreview.Sum(item => item.PayableAmount);
+    private int PreviewLectureCount => _monthlyPreview.Sum(item => item.LectureCount);
+    private int PreviewPracticalCount => _monthlyPreview.Sum(item => item.PracticalCount);
+    private decimal TimetableForecastAmount => _timetableForecast.Sum(item => item.ExpectedAmount);
+    private int TimetableForecastLectures => _timetableForecast.Sum(item => item.MonthlyLectures);
+    private int TimetableForecastPracticals => _timetableForecast.Sum(item => item.MonthlyPracticals);
+    private int TimetableForecastMissingRates => _timetableForecast.Count(item => !item.HasRate);
+    private decimal SemesterForecastAmount => _semesterForecast.Sum(item => item.ExpectedAmount);
+    private int SemesterForecastLectures => _semesterForecast.Sum(item => item.MonthlyLectures);
+    private int SemesterForecastPracticals => _semesterForecast.Sum(item => item.MonthlyPracticals);
+    private int SemesterForecastMissingRates => _semesterForecast.Count(item => !item.HasRate);
+
+    private async Task MarkProfessorPaid(PaymentLineItem lineItem)
+    {
+        try
+        {
+            await PaymentSvc.MarkLineItemAsPaidAsync(lineItem.Id);
+            _periods = await PaymentSvc.GetPeriodsAsync();
+            await ViewDetails(lineItem.PaymentPeriodId);
+            Snackbar.Add($"Payment recorded for {lineItem.Faculty?.FullName ?? "Professor"}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private static string GetPlainStatus(PaymentPeriodStatus status) => status switch
+    {
+        PaymentPeriodStatus.Open => "Ready to calculate",
+        PaymentPeriodStatus.Calculated => "Ready to approve",
+        PaymentPeriodStatus.Approved => "Ready to pay",
+        PaymentPeriodStatus.Paid => "Paid",
+        _ => status.ToString()
+    };
+
+    private static string GetPrimaryAction(PaymentPeriodStatus status) => status switch
+    {
+        PaymentPeriodStatus.Open => "Calculate payroll",
+        PaymentPeriodStatus.Calculated => "Approve payroll",
+        PaymentPeriodStatus.Approved => "Mark all as paid",
+        PaymentPeriodStatus.Paid => "Paid",
+        _ => "View payroll"
+    };
+
+    private static string GetPeriodHint(PaymentPeriodStatus status) => status switch
+    {
+        PaymentPeriodStatus.Open => "When all classes are logged, calculate the payout in one click.",
+        PaymentPeriodStatus.Calculated => "Review the clear breakdown below, then approve the payroll.",
+        PaymentPeriodStatus.Approved => "Pay professors one by one below, or mark the entire payroll as paid after all transfers.",
+        PaymentPeriodStatus.Paid => "This payroll is complete and safely kept in your history.",
+        _ => ""
+    };
+
+    private static string GetStatusStyle(PaymentPeriodStatus status) => status switch
+    {
+        PaymentPeriodStatus.Open => "background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;",
+        PaymentPeriodStatus.Calculated => "background:#fef3c7; color:#92400e; border:1px solid #fde68a;",
+        PaymentPeriodStatus.Approved => "background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;",
+        PaymentPeriodStatus.Paid => "background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;",
+        _ => ""
+    };
+
+    private static string GetLinePaymentStyle(PaymentLineItem lineItem) => lineItem.IsPaid
+        ? "background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;"
+        : "background:#fff7ed; color:#b45309; border:1px solid #fed7aa;";
+}

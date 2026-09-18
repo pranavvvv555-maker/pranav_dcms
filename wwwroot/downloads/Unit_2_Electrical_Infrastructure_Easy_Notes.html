@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit 2: Data Centre Electrical Infrastructure Engineering - Easy Study Guide</title>
+<style>
+  :root {
+    --primary: #1e3a8a;
+    --primary-light: #3b82f6;
+    --accent: #f59e0b;
+    --bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text: #1e293b;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --success: #10b981;
+    --danger: #ef4444;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--text);
+    background-color: var(--bg);
+    padding: 24px;
+  }
+  .container { max-width: 1000px; margin: 0 auto; }
+  
+  header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
+    color: white;
+    padding: 40px;
+    border-radius: 16px;
+    margin-bottom: 32px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  }
+  header h1 { font-size: 2.2rem; margin-bottom: 8px; }
+  header p { font-size: 1.1rem; opacity: 0.9; }
+  .badge {
+    display: inline-block;
+    background: var(--accent);
+    color: #000;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-top: 12px;
+    text-transform: uppercase;
+  }
+
+  .print-btn {
+    background: #ffffff;
+    color: var(--primary);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .print-btn:hover { background: #f1f5f9; }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+  }
+  h2 {
+    color: var(--primary);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h3 { color: #334155; margin-top: 20px; margin-bottom: 10px; }
+  p { margin-bottom: 14px; }
+  
+  .analogy-box {
+    background-color: #eff6ff;
+    border-left: 5px solid var(--primary-light);
+    padding: 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .analogy-box strong { color: var(--primary); font-size: 1.05rem; }
+
+  .exam-tip-box {
+    background-color: #fefce8;
+    border-left: 5px solid var(--accent);
+    padding: 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .exam-tip-box strong { color: #b45309; }
+
+  .danger-box {
+    background-color: #fef2f2;
+    border-left: 5px solid var(--danger);
+    padding: 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+  }
+  .danger-box strong { color: var(--danger); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0;
+    font-size: 0.95rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    text-align: left;
+  }
+  th { background-color: #f1f5f9; color: var(--primary); font-weight: 600; }
+  tr:nth-child(even) { background-color: #f8fafc; }
+
+  pre {
+    background: #0f172a;
+    color: #38bdf8;
+    padding: 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: Consolas, Monaco, "Courier New", monospace;
+    font-size: 0.9rem;
+    margin: 16px 0;
+  }
+
+  .formula-box {
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    font-family: inherit;
+  }
+  .formula-title { font-weight: bold; color: #065f46; margin-bottom: 6px; }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .print-btn { display: none; }
+    header { background: #1e3a8a !important; color: white !important; -webkit-print-color-adjust: exact; }
+    .card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">Master Exam Guide • M.Tech CSE</div>
+    <h1>UNIT 2: Data Centre Electrical Infrastructure</h1>
+    <p>Easy-to-Understand Notes with Real-World Analogies, Solved Numericals & Ready Exam Answers</p>
+    <p style="font-size: 0.9rem; opacity: 0.8; margin-top: 6px;">MIT-WPU × NIRVAA Solution Pvt. Ltd. | 6 Contact Hours</p>
+    <button class="print-btn" onclick="window.print()">🖨️ Print or Save as PDF</button>
+  </header>
+
+  <div class="card">
+    <h2>💡 1. The Core Idea: Why is Electrical Design so Critical?</h2>
+    <p>Think of a Data Centre as a <strong>giant factory whose only raw material is electricity</strong> and whose finished product is digital data.</p>
+    <div class="analogy-box">
+      <strong>Analogy: The Hospital ICU</strong><br>
+      If power cuts in an apartment building, the TV shuts off and you light a candle. But in an ICU, patients die if oxygen stops for 10 seconds. Similarly, in a Tier III/IV data centre, if power flickers for even <strong>15 milliseconds</strong>, thousands of servers reboot, banking transactions fail, and millions of dollars are lost. The electrical system must have <strong>zero single points of failure</strong>.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>⚡ 2. Utility Power Systems & Transformers</h2>
+    
+    <h3>A. Dual Utility Feeds</h3>
+    <p>Never take power from one street pole. A Tier III/IV data centre connects to <strong>two separate electrical substations</strong> fed by different transmission grids.</p>
+    <div class="exam-tip-box">
+      <strong>Exam Keyword: Physical Routing Diversity</strong><br>
+      The two underground cable trenches must enter the property boundary from opposite directions (at least 20 meters apart). If a construction backhoe cuts one cable, the other feed remains 100% intact.
+    </div>
+
+    <h3>B. Cast Resin Dry-Type (CRT) vs. Oil Transformers</h3>
+    <table>
+      <tr><th>Parameter</th><th>Cast Resin Dry-Type (CRT)</th><th>Oil-Cooled Transformer</th></tr>
+      <tr><td><strong>Cooling Medium</strong></td><td>Air flowing over epoxy-resin coils</td><td>Flammable mineral oil</td></tr>
+      <tr><td><strong>Fire Danger</strong></td><td><strong>Zero Fire Risk</strong> (Self-extinguishing)</td><td>High Fire Risk (Oil explodes/burns)</td></tr>
+      <tr><td><strong>Indoor Installation</strong></td><td><strong>YES</strong> (Directly beside IT rooms)</td><td>NO (Must be outside with blast walls)</td></tr>
+      <tr><td><strong>Data Centre Standard</strong></td><td><strong>Universal Industry Standard</strong></td><td>Used only in outdoor utility yards</td></tr>
+    </table>
+
+    <h3>C. The K-Factor: Why Computer Servers Murder Transformers</h3>
+    <div class="analogy-box">
+      <strong>Analogy: Smooth Driving vs. Potholes</strong><br>
+      A normal light bulb draws electricity smoothly like driving on a smooth highway. A server power supply (SMPS) takes choppy, violent bites of current thousands of times a second (Non-linear load). This creates electrical shockwaves called <strong>Harmonics</strong>.
+    </div>
+    <p>Harmonics cause high-frequency Eddy current heating inside transformers proportional to the <strong>square of the frequency</strong>. Normal transformers catch fire. We must use <strong>K-Factor Rated Transformers</strong> (specifically <strong>K-20</strong> for data centres), which have thicker copper coils, electrostatic shields, and oversized neutrals.</p>
+
+    <h3>D. Triplen Harmonics & 200% Neutral</h3>
+    <p>3rd, 9th, and 15th harmonics do not cancel out in the neutral wire—they <strong>add up</strong>! Neutral current can reach <strong>1.73 times the phase current</strong>. Therefore, data centre cables use a <strong>200% double-sized neutral conductor</strong> to prevent melting.</p>
+  </div>
+
+  <div class="card">
+    <h2>🔋 3. Backup Power: Diesel Generators & UPS Topologies</h2>
+
+    <h3>A. The Lifesaving Handshake</h3>
+    <pre>
+[City Grid Dies] ──> [0ms: UPS Battery Keeps Servers Running]
+                             │
+                             ▼ (takes 10 to 15 seconds)
+                     [Diesel Generator Starts & Stabilizes]
+                             │
+                             ▼ (ATS Switches Over)
+                     [Generator Powers UPS & Chillers for Days]
+    </pre>
+
+    <h3>B. Generator DCC Rating (Data Centre Continuous)</h3>
+    <p>Normal building backup generators have an <strong>ESP (Emergency Standby Power)</strong> rating (limited to 200 hours/yr and 70% load). <strong>The Uptime Institute rejects ESP!</strong> Data centres require <strong>DCC (Data Centre Continuous)</strong> rated generators that can run at 100% full capacity for unlimited days, with at least <strong>48 to 72 hours of on-site diesel storage</strong>.</p>
+
+    <h3>C. Online Double Conversion UPS (VFI)</h3>
+    <p>Why is it the only UPS used in Tier III/IV?</p>
+    <ul>
+      <li><strong>Double Conversion:</strong> AC (utility) ──> DC (clean power) ──> AC (brand new pure sine wave).</li>
+      <li><strong>Zero Transfer Time (0.00 ms):</strong> The battery sits permanently on the internal DC bus. When grid power drops, the battery provides power instantly with no mechanical relay click.</li>
+    </ul>
+
+    <h3>D. VRLA vs. Lithium-Ion Batteries</h3>
+    <table>
+      <tr><th>Feature</th><th>VRLA (Lead-Acid)</th><th>Lithium-Ion (LiFePO4)</th></tr>
+      <tr><td><strong>Weight & Size</strong></td><td>Very heavy (needs floor reinforcement)</td><td><strong>60% lighter & 50% smaller</strong></td></tr>
+      <tr><td><strong>Lifespan</strong></td><td>3 to 5 years</td><td><strong>12 to 15 years</strong> (lasts whole UPS life)</td></tr>
+      <tr><td><strong>Room Cooling</strong></td><td>Strictly 20°C–25°C (heat kills lead acid)</td><td>Works comfortably at 30°C (saves AC power)</td></tr>
+      <tr><td><strong>Recharge Speed</strong></td><td>12 to 24 hours</td><td><strong>1 to 2 hours fast recharge</strong></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>🔀 4. Power Distribution: ATS vs. STS & Busways</h2>
+
+    <div class="danger-box">
+      <strong>⚠️ Classic Exam Trap: Never confuse ATS and STS!</strong><br>
+      • <strong>ATS (Automatic Transfer Switch):</strong> Mechanical switch. Takes <strong>50 to 100 milliseconds</strong>. Used upstream between City Grid and Diesel Generator.<br>
+      • <strong>STS (Static Transfer Switch):</strong> Solid-state silicon SCR switch. Takes only <strong>2 to 4 milliseconds</strong> (1/4 of an AC cycle). Used downstream at server racks so servers never lose power.
+    </div>
+
+    <h3>Overhead Track Busway vs. Floor Whips</h3>
+    <p>Old data centres ran hundreds of thick copper cables ("whips") under raised floor tiles, blocking air cooling. Modern data centres hang <strong>aluminum track busways from the ceiling</strong>. Racks are powered via simple twist-and-lock "Tap-off boxes" with zero floor blockage.</p>
+  </div>
+
+  <div class="card">
+    <h2>⚡ 5. Earthing, Grounding & Lightning Protection</h2>
+    
+    <h3>A. The TN-S Earthing Scheme (Mandatory for IT)</h3>
+    <p><strong>T</strong> (Transformer neutral connected to earth), <strong>N</strong> (Equipment chassis bonded), <strong>S</strong> (Neutral and Protective Earth wires are kept <strong>STRICTLY SEPARATE</strong> throughout the building).</p>
+    <div class="danger-box">
+      <strong>Why TN-C is BANNED:</strong> In TN-C, Neutral and Earth share one wire. Severe harmonic server currents flow through the metal server racks, electrocuting engineers and corrupting network data packets!
+    </div>
+
+    <h3>B. Signal Reference Grid (SRG)</h3>
+    <p>A <strong>2-foot × 2-foot copper mesh</strong> welded under the raised floor tiles. At high digital clock speeds (gigahertz), normal wires have high impedance. The SRG provides near-zero impedance ($Z pprox 0\ \Omega$) to drain away electrostatic discharge (ESD) and radio-frequency noise.</p>
+    
+    <p><strong>Target Earth Resistance:</strong> &lt; 1.0 Ohm (as per <strong>IEEE 1100 Emerald Book</strong>).</p>
+  </div>
+
+  <div class="card">
+    <h2>🧮 6. Solved University Numerical Problem (10-15 Marks)</h2>
+    <div class="formula-box">
+      <div class="formula-title">📋 The Given Exam Problem:</div>
+      500 Server Racks @ 6 kW each. Target PUE = 1.40. 2N UPS Architecture (95% efficiency, 0.90 PF). Backup DG plant with N+1 redundancy using 1500 kVA generators (0.80 PF). 48 Hours diesel fuel runtime @ 0.25 L/kWh.
+    </div>
+
+    <h3>Step-by-Step Solved Arithmetic:</h3>
+    <ol>
+      <li><strong>IT Load:</strong> $500 	imes 6	ext{ kW} = \mathbf{3000	ext{ kW}}\ (3.0	ext{ MW})$</li>
+      <li><strong>Total Facility Power:</strong> $3000	ext{ kW} 	imes 1.40	ext{ (PUE)} = \mathbf{4200	ext{ kW}}\ (4.2	ext{ MW})$</li>
+      <li><strong>UPS Capacity Sizing:</strong>
+        $$	ext{UPS Input (kW)} = rac{3000}{0.95} = 3158	ext{ kW}$$
+        $$	ext{UPS kVA} = rac{3158}{0.90	ext{ PF}} = \mathbf{3509	ext{ kVA}}$$
+        Because it is a <strong>2N architecture</strong>:
+        <br>• Path A needs: $4 	imes 1000	ext{ kVA}$ modules.
+        <br>• Path B needs: $4 	imes 1000	ext{ kVA}$ modules.
+        <br><strong>Total = 8 modules of 1000 kVA each.</strong>
+      </li>
+      <li><strong>Diesel Generator Sizing (Must power full 4200 kW facility!):</strong>
+        $$	ext{Power per DG} = 1500	ext{ kVA} 	imes 0.80 = 1200	ext{ kW}$$
+        $$N = rac{4200	ext{ kW}}{1200	ext{ kW}} = 3.5 	o 4	ext{ Generators}$$
+        $$	ext{With N+1 Redundancy} = 4 + 1 = \mathbf{5	ext{ Generators of 1500 kVA each}}.$$
+      </li>
+      <li><strong>Diesel Fuel Tank Size:</strong>
+        $$	ext{Total Energy} = 4200	ext{ kW} 	imes 48	ext{ Hours} = 201,600	ext{ kWh}$$
+        $$	ext{Net Fuel} = 201,600 	imes 0.25	ext{ L/kWh} = 50,400	ext{ Litres}$$
+        $$	ext{Gross Tank Capacity (+10% sludge bottom margin)} = rac{50,400}{0.90} = \mathbf{56,000	ext{ Litres}}.$$
+      </li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>🎯 7. Ready-to-Write 15-Mark Exam Questions</h2>
+    <h3>Q1: Draw and explain the Single Line Diagram (SLD) of a Tier III Data Centre.</h3>
+    <p><em>Checklist to draw:</em> Two Utility Feeds ──> Two RMUs ──> Two Dry-Type Transformers (11kV to 415V) ──> Main Low Voltage Switchboard with ATS ──> Backup DG Plant ──> Online Double Conversion UPS (Path A & Path B) ──> Overhead Busway ──> Dual Rack PDUs (A & B) ──> Dual Power Supplies on Servers.</p>
+
+    <h3>Q2: Explain earthing, TN-S scheme, and Signal Reference Grid.</h3>
+    <p><em>Checklist to explain:</em> Human safety + Digital noise immunity; TN-S separates Neutral and Protective Earth to stop harmonic currents; SRG 2ft×2ft copper mesh reduces high-frequency impedance to zero; IEEE 1100 &lt; 1 Ohm standard.</p>
+  </div>
+</div>
+</body>
+</html>

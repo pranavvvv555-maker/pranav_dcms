@@ -1,0 +1,318 @@
+@page "/faculty"
+@rendermode InteractiveServer
+@inject FacultyService FacultySvc
+@inject ISnackbar Snackbar
+
+<PageTitle>DCMS — Faculty & Rates</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Step 1 · Payment setup</span>
+            <MudText Typo="Typo.h4">Faculty & rates</MudText>
+            <MudText Typo="Typo.body2">Set two simple rates for every professor: one for a lecture and one for a practical.</MudText>
+        </div>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenAddDialog">
+            Add professor
+        </MudButton>
+    </section>
+
+    <section class="rate-progress-card">
+        <div class="rate-progress-card__icon"><MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" /></div>
+        <div class="rate-progress-card__copy">
+            <span>Payment readiness</span>
+            <MudText Typo="Typo.h6">@_configuredFeeCount of @_payableFacultyCount professors are ready for payroll</MudText>
+            <MudText Typo="Typo.body2">A professor is ready once both class fees are set.</MudText>
+        </div>
+        <div class="rate-progress-card__meter" aria-label="@_configuredFeeCount of @_payableFacultyCount rates configured">
+            <strong>@(_payableFacultyCount == 0 ? 0 : (_configuredFeeCount * 100 / _payableFacultyCount))%</strong>
+            <span>complete</span>
+        </div>
+    </section>
+
+    <MudPaper Elevation="0" Class="faculty-list-card">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4 faculty-list-card__heading">
+            <div>
+                <MudText Typo="Typo.h6">Set professor rates</MudText>
+                <MudText Typo="Typo.body2">Use the edit button beside a professor to add or change their fees.</MudText>
+            </div>
+            <MudTextField @bind-Value="_searchText" Placeholder="Find a professor" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="faculty-search" />
+        </MudStack>
+
+        @if (VisibleFaculty.Any())
+        {
+            <div class="simple-table">
+                <MudDataGrid Items="@VisibleFaculty" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <TemplateColumn Title="Professor">
+                            <CellTemplate>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Small" Class="faculty-avatar">@GetInitials(context.Item.FullName)</MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">@context.Item.FullName</MudText>
+                                        <MudText Typo="Typo.caption">@context.Item.Organization · @context.Item.Role</MudText>
+                                    </div>
+                                </MudStack>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Lecture fee">
+                            <CellTemplate>
+                                @{ var rates = GetFacultyRates(context.Item.Id); }
+                                <span class="fee-value">@(rates.Lecture > 0 ? $"₹{rates.Lecture:N0}" : "Not set")</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Practical fee">
+                            <CellTemplate>
+                                @{ var rates = GetFacultyRates(context.Item.Id); }
+                                <span class="fee-value">@(rates.Practical > 0 ? $"₹{rates.Practical:N0}" : "Not set")</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="">
+                            <CellTemplate>
+                                <MudStack Row="true" Spacing="1">
+                                    <MudTooltip Text="Edit profile">
+                                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" aria-label="Edit profile"
+                                                       Color="Color.Default" OnClick="@(() => OpenEditDialog(context.Item))" />
+                                    </MudTooltip>
+                                    <MudButton Size="Size.Small" Variant="@(HasClassRates(context.Item.Id) ? Variant.Outlined : Variant.Filled)"
+                                               Class="@(HasClassRates(context.Item.Id) ? "" : "btn-gradient-primary")"
+                                               Color="@(HasClassRates(context.Item.Id) ? Color.Primary : Color.Default)"
+                                               StartIcon="@(HasClassRates(context.Item.Id) ? Icons.Material.Filled.Payments : Icons.Material.Filled.Add)"
+                                               OnClick="@(() => OpenRateDialog(context.Item))">
+                                        @(HasClassRates(context.Item.Id) ? "Edit fees" : "Set fees")
+                                    </MudButton>
+                                </MudStack>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+        }
+        else
+        {
+            <div class="simple-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.PersonSearch" />
+                <div>
+                    <MudText Typo="Typo.subtitle1">No professor found</MudText>
+                    <MudText Typo="Typo.body2">Try a different name, or add a new professor.</MudText>
+                </div>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
+
+<MudDialog @bind-Visible="_rateDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon"><MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" /></span>
+            <div>
+                <MudText Typo="Typo.h6">Set class fees</MudText>
+                <MudText Typo="Typo.caption">@_rateFaculty?.FullName</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-4">These are the only two amounts used to calculate salary.</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <div class="rate-input-card">
+                    <span>Lecture</span>
+                    <MudNumericField @bind-Value="_newLectureRate" Label="Fee per lecture" Variant="Variant.Outlined"
+                                     Min="0m" Format="N0" Adornment="Adornment.Start" AdornmentText="₹" Required="true" />
+                    <small>One theory class</small>
+                </div>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <div class="rate-input-card rate-input-card--blue">
+                    <span>Practical</span>
+                    <MudNumericField @bind-Value="_newPracticalRate" Label="Fee per practical" Variant="Variant.Outlined"
+                                     Min="0m" Format="N0" Adornment="Adornment.Start" AdornmentText="₹" Required="true" />
+                    <small>One lab or practical class</small>
+                </div>
+            </MudItem>
+        </MudGrid>
+        <MudDatePicker @bind-Date="_rateEffectiveDate" Label="Effective from" Variant="Variant.Outlined" Margin="Margin.Dense"
+                       HelperText="Choose a future date to schedule a different fee later." Class="mt-4" />
+        <MudTextField @bind-Value="_rateNotes" Label="Note (optional)" Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Placeholder="For example: revised semester fee" Class="mt-2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _rateDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveRate">Save fees</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<MudDialog @bind-Visible="_editDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_isNew ? "Add professor" : "Edit professor")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-4">Start with the essentials. You can add the remaining profile details later.</MudText>
+        <MudForm @ref="_form">
+            <MudTextField @bind-Value="_editFaculty.FullName" Label="Professor name" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+            <MudSelect @bind-Value="_editFaculty.Organization" Label="Organisation" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+                <MudSelectItem Value="@("NIRVAA")">NIRVAA</MudSelectItem>
+                <MudSelectItem Value="@("MIT-WPU")">MIT-WPU</MudSelectItem>
+            </MudSelect>
+            <MudSelect @bind-Value="_editFaculty.Role" Label="Teaching role" Variant="Variant.Outlined" Margin="Margin.Dense">
+                <MudSelectItem Value="@("Teaching")">Teaching</MudSelectItem>
+                <MudSelectItem Value="@("Lab Assistant")">Lab Assistant</MudSelectItem>
+            </MudSelect>
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _editDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveFaculty">Save professor</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<Faculty> _faculties = new();
+    private Dictionary<int, FacultyRate?> _facultyRates = new();
+    private string _searchText = "";
+    private int _configuredFeeCount;
+    private int _payableFacultyCount;
+
+    private bool _editDialogVisible;
+    private bool _rateDialogVisible;
+    private bool _isNew;
+    private Faculty _editFaculty = new();
+    private Faculty? _rateFaculty;
+    private decimal _currentLectureRate;
+    private decimal _currentPracticalRate;
+    private decimal _newLectureRate;
+    private decimal _newPracticalRate;
+    private DateTime? _rateEffectiveDate = DateTime.Today;
+    private string? _rateNotes;
+    private MudForm? _form;
+
+    private IEnumerable<Faculty> VisibleFaculty =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _faculties.Where(f => f.IsActive)
+            : _faculties.Where(f => f.IsActive && f.FullName.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync() => await LoadData();
+
+    private async Task LoadData()
+    {
+        _faculties = await FacultySvc.GetAllAsync();
+        _facultyRates.Clear();
+        _configuredFeeCount = 0;
+        _payableFacultyCount = _faculties.Count(f => f.IsActive);
+
+        foreach (var faculty in _faculties)
+        {
+            var rate = await FacultySvc.GetCurrentClassRatesAsync(faculty.Id);
+            _facultyRates[faculty.Id] = rate;
+            if (faculty.IsActive && rate is not null && rate.LectureRateINR > 0 && rate.PracticalRateINR > 0)
+                _configuredFeeCount++;
+        }
+    }
+
+    private (decimal Lecture, decimal Practical) GetFacultyRates(int id)
+        => _facultyRates.TryGetValue(id, out var rate) && rate is not null
+            ? (rate.LectureRateINR, rate.PracticalRateINR)
+            : (0m, 0m);
+
+    private bool HasClassRates(int id)
+    {
+        var rates = GetFacultyRates(id);
+        return rates.Lecture > 0 && rates.Practical > 0;
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "F";
+        var parts = name.Replace("Dr.", "").Replace("Mr.", "").Replace("Prof.", "").Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant() : parts[0][0].ToString().ToUpperInvariant();
+    }
+
+    private void OpenAddDialog()
+    {
+        _isNew = true;
+        _editFaculty = new Faculty { Organization = "NIRVAA", Role = "Teaching" };
+        _editDialogVisible = true;
+    }
+
+    private void OpenEditDialog(Faculty faculty)
+    {
+        _isNew = false;
+        _editFaculty = new Faculty
+        {
+            Id = faculty.Id,
+            FullName = faculty.FullName,
+            Designation = faculty.Designation,
+            Organization = faculty.Organization,
+            Role = faculty.Role,
+            OfficialEmail = faculty.OfficialEmail,
+            Phone = faculty.Phone,
+            IsActive = faculty.IsActive
+        };
+        _editDialogVisible = true;
+    }
+
+    private async Task OpenRateDialog(Faculty faculty)
+    {
+        _rateFaculty = faculty;
+        var rates = await FacultySvc.GetCurrentClassRatesAsync(faculty.Id);
+        _currentLectureRate = rates?.LectureRateINR ?? 0;
+        _currentPracticalRate = rates?.PracticalRateINR ?? 0;
+        _newLectureRate = _currentLectureRate > 0 ? _currentLectureRate : FacultyService.DefaultClassRateINR;
+        _newPracticalRate = _currentPracticalRate > 0 ? _currentPracticalRate : FacultyService.DefaultClassRateINR;
+        _rateEffectiveDate = DateTime.Today;
+        _rateNotes = null;
+        _rateDialogVisible = true;
+    }
+
+    private async Task SaveFaculty()
+    {
+        if (string.IsNullOrWhiteSpace(_editFaculty.FullName)) return;
+
+        try
+        {
+            if (_isNew)
+            {
+                await FacultySvc.CreateAsync(_editFaculty);
+                Snackbar.Add("Professor added. Set their fees next.", Severity.Success);
+            }
+            else
+            {
+                var existing = await FacultySvc.GetByIdAsync(_editFaculty.Id);
+                if (existing is not null)
+                {
+                    existing.FullName = _editFaculty.FullName;
+                    existing.Organization = _editFaculty.Organization;
+                    existing.Role = _editFaculty.Role;
+                    await FacultySvc.UpdateAsync(existing);
+                    Snackbar.Add("Professor profile updated.", Severity.Success);
+                }
+            }
+
+            _editDialogVisible = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task SaveRate()
+    {
+        if (_rateFaculty is null || !_rateEffectiveDate.HasValue) return;
+
+        try
+        {
+            await FacultySvc.SetClassRatesAsync(_rateFaculty.Id, _newLectureRate, _newPracticalRate, _rateEffectiveDate.Value, _rateNotes);
+            _rateDialogVisible = false;
+            await LoadData();
+            Snackbar.Add($"Fees saved for {_rateFaculty.FullName}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

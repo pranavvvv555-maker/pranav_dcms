@@ -1,0 +1,27 @@
+# fly.toml app configuration file for DCMSApp
+app = "dcms-nirvaa"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  ASPNETCORE_URLS = "http://0.0.0.0:5025"
+  ConnectionStrings__DefaultConnection = "Data Source=/app/data/dcms.db"
+
+[http_service]
+  internal_port = 5025
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[mounts]
+  source = "dcms_data"
+  destination = "/app/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

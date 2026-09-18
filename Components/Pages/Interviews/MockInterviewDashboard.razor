@@ -1,0 +1,1024 @@
+@page "/mock-interviews"
+@rendermode InteractiveServer
+@inject MockInterviewService InterviewSvc
+@inject FacultyService FacultySvc
+@inject CourseService CourseSvc
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>DCMS — Mock Feedback Spreadsheet</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-2 simple-page">
+    <!-- Header Section -->
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Month-End Industry Interview Desk · Flexible Scheduling</span>
+            <MudText Typo="Typo.h4">Mock Feedback & Scheduling</MudText>
+            <MudText Typo="Typo.body2">
+                Schedule flexible month-end mock interview drives, track status, and directly grade student Confidence, Communication, Technical factors, and Feedback.
+            </MudText>
+        </div>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">
+                Export Sheet
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="OpenAddStudentDialog">
+                Add Student
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.CalendarMonth" OnClick="OpenCreateDriveDialog">
+                Schedule Mock Drive
+            </MudButton>
+        </MudStack>
+    </section>
+
+    <!-- Key Metrics Bar with Gradients & Polish -->
+    <MudGrid Class="mb-5">
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card" Style="border-top: 3px solid #2563eb !important;">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <span class="metric-card__label">Average Marks</span>
+                    <MudIcon Icon="@Icons.Material.Filled.Stars" Size="Size.Small" Style="color: #2563eb;" />
+                </div>
+                <strong class="metric-card__value" style="color: #2563eb;">@_stats.AverageMarksOutOf10 <small style="font-size: 0.9rem; color: #64748b; font-weight: 600;">/ 10</small></strong>
+                <small class="metric-card__hint">@_stats.TotalEvaluated evaluated · @_stats.AbsentCount absent</small>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card" Style="border-top: 3px solid #059669 !important;">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <span class="metric-card__label">Confidence Avg</span>
+                    <MudIcon Icon="@Icons.Material.Filled.Psychology" Size="Size.Small" Style="color: #059669;" />
+                </div>
+                <strong class="metric-card__value" style="color: #059669;">@_stats.AverageConfidence <small style="font-size: 0.9rem; color: #64748b; font-weight: 600;">/ 10</small></strong>
+                <small class="metric-card__hint">Poise & self-assurance</small>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card" Style="border-top: 3px solid #d97706 !important;">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <span class="metric-card__label">Communication</span>
+                    <MudIcon Icon="@Icons.Material.Filled.RecordVoiceOver" Size="Size.Small" Style="color: #d97706;" />
+                </div>
+                <strong class="metric-card__value" style="color: #d97706;">@_stats.AverageCommunication <small style="font-size: 0.9rem; color: #64748b; font-weight: 600;">/ 10</small></strong>
+                <small class="metric-card__hint">Articulation & clarity</small>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Class="metric-card" Style="border-top: 3px solid #7c3aed !important;">
+                <div class="d-flex justify-space-between align-center mb-1">
+                    <span class="metric-card__label">Technical Avg</span>
+                    <MudIcon Icon="@Icons.Material.Filled.Terminal" Size="Size.Small" Style="color: #7c3aed;" />
+                </div>
+                <strong class="metric-card__value" style="color: #7c3aed;">@_stats.AverageTechnical <small style="font-size: 0.9rem; color: #64748b; font-weight: 600;">/ 10</small></strong>
+                <small class="metric-card__hint">Core concept & queries</small>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <!-- Drive Tabs Bar (Modern Pill Style with Glowing Selection) -->
+    <div class="d-flex flex-wrap gap-2 align-center justify-space-between mb-4">
+        <div class="d-flex flex-wrap gap-2 align-center">
+            @foreach (var d in _drives)
+            {
+                var isSelected = d.Id == _selectedDriveId;
+                <button type="button" @onclick="@(() => OnDriveChanged(d.Id))"
+                        style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.86rem; font-weight: 600; border-radius: 9999px; border: 1px solid @(isSelected ? "#2563eb" : "#e2e8f0"); background: @(isSelected ? "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)" : "#ffffff"); color: @(isSelected ? "#ffffff" : "#475569"); box-shadow: @(isSelected ? "0 4px 14px rgba(37, 99, 235, 0.3)" : "0 1px 3px rgba(0,0,0,0.04)"); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);">
+                    <span>📅 @d.Title</span>
+                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; background: @(isSelected ? "rgba(255,255,255,0.22)" : GetDriveBadgeBackground(d.Status)); color: @(isSelected ? "#ffffff" : GetDriveBadgeColor(d.Status));">
+                        @d.Status
+                    </span>
+                </button>
+            }
+            <button type="button" @onclick="OpenCreateDriveDialog"
+                    style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 0.86rem; font-weight: 700; border-radius: 9999px; border: 1.5px dashed #3b82f6; background: #eff6ff; color: #2563eb; cursor: pointer; transition: all 0.2s;">
+                <MudIcon Icon="@Icons.Material.Filled.Add" Size="Size.Small" />
+                <span>Schedule New Drive</span>
+            </button>
+        </div>
+
+        <div style="min-width: 260px;">
+            <MudTextField @bind-Value="_searchQuery" Placeholder="Search student name..."
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Immediate="true" />
+        </div>
+    </div>
+
+    <!-- Active Drive Card & Flexible Reschedule Bar -->
+    @if (_activeDrive != null)
+    {
+        <div class="pa-4 mb-4 d-flex flex-wrap align-center justify-space-between gap-3"
+             style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid @GetDriveStatusBorderColor(_activeDrive.Status); border-radius: 12px; box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);">
+            <div class="d-flex flex-column gap-1">
+                <div class="d-flex align-center gap-2 flex-wrap">
+                    <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">@_activeDrive.Title</span>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@GetDriveStatusChipColor(_activeDrive.Status)" Style="font-weight: 700; font-size: 0.72rem;">
+                        @_activeDrive.Status
+                    </MudChip>
+                    <span style="font-size: 0.84rem; font-weight: 600; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 12px; border-radius: 9999px;">
+                        📅 @_activeDrive.DriveDate.ToString("dddd, dd MMMM yyyy")
+                    </span>
+                    @if (GetLeadInterviewerName() is string leadName && !string.IsNullOrWhiteSpace(leadName))
+                    {
+                        <span style="font-size: 0.82rem; color: #1e40af; background: #eff6ff; border: 1px solid #dbeafe; padding: 3px 10px; border-radius: 9999px; font-weight: 600;">
+                            👤 Panel: @leadName
+                        </span>
+                    }
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_activeDrive.PanelNotes))
+                {
+                    <div style="font-size: 0.84rem; color: #64748b;" class="d-flex align-center gap-1 mt-1">
+                        <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Style="color: #94a3b8;" />
+                        <span>@_activeDrive.PanelNotes</span>
+                    </div>
+                }
+            </div>
+
+            <div class="d-flex align-center gap-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.EditCalendar"
+                           OnClick="OpenEditDriveDialog"
+                           Style="font-weight: 600; border-radius: 8px;">
+                    Reschedule / Edit Date
+                </MudButton>
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small"
+                               OnClick="OpenDeleteDriveDialog" />
+            </div>
+        </div>
+    }
+
+    <!-- Sticky Spreadsheet Action Bar (Modern Frosted Glass) -->
+    <div class="sheet-action-bar mb-4 pa-3 d-flex flex-wrap align-center justify-space-between gap-2"
+         style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid #e2e8f0; border-radius: 12px; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05); position: sticky; top: 76px; z-index: 10;">
+        <div class="d-flex align-center gap-3">
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       OnClick="SaveAllChanges"
+                       Disabled="@(!_modifiedEvaluationIds.Any())"
+                       Style="font-weight: 700; border-radius: 8px; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);">
+                @if (_modifiedEvaluationIds.Any())
+                {
+                    <span>Save Changes (@_modifiedEvaluationIds.Count)</span>
+                }
+                else
+                {
+                    <span>All Changes Saved</span>
+                }
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.AutoFixHigh"
+                       OnClick="AutoCalculateMarks"
+                       Style="font-weight: 600; border-radius: 8px;">
+                Auto-Calc Marks
+            </MudButton>
+
+            <MudButton Variant="Variant.Text" Color="Color.Default" Size="Size.Medium"
+                       StartIcon="@Icons.Material.Filled.Undo"
+                       Disabled="@(!_modifiedEvaluationIds.Any())"
+                       OnClick="DiscardChanges"
+                       Style="font-weight: 600; border-radius: 8px;">
+                Discard
+            </MudButton>
+        </div>
+
+        <div class="d-flex align-center gap-3">
+            <span style="font-size: 0.82rem; color: #64748b;" class="d-none d-md-inline">
+                💡 <em>Press <strong>Tab</strong> to navigate quickly between cells</em>
+            </span>
+            <MudChip T="string" Color="@(_modifiedEvaluationIds.Any() ? Color.Warning : Color.Success)" Size="Size.Small" Variant="Variant.Filled" Style="font-weight: 700; font-size: 0.75rem;">
+                @(_modifiedEvaluationIds.Any() ? $"{_modifiedEvaluationIds.Count} unsaved row(s)" : "All saved")
+            </MudChip>
+        </div>
+    </div>
+
+    <!-- Spreadsheet Feedback Table (Modern Slate & Pastel Palette) -->
+    @if (!_evaluations.Any())
+    {
+        <MudPaper Elevation="0" Class="pa-8 text-center" Style="background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 16px;">
+            <MudIcon Icon="@Icons.Material.Filled.Assessment" Style="font-size: 3.5rem; color: #94a3b8;" Class="mb-3" />
+            <MudText Typo="Typo.h6" Style="color: #1e293b; font-weight: 700;">No student evaluations assigned for this drive</MudText>
+            <MudText Typo="Typo.body2" Style="color: #64748b;" Class="mb-4">Click below to add enrolled students or populate the semester roster.</MudText>
+            <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="OpenAddStudentDialog" StartIcon="@Icons.Material.Filled.PersonAdd">
+                Add Students
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Style="border: 1px solid #e2e8f0; border-radius: 14px; overflow-x: auto; background: #ffffff; box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.04);">
+            <table class="sheet-table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem; min-width: 1100px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 12px 10px; text-align: center; font-weight: 700; color: #475569; width: 50px; border-right: 1px solid #e2e8f0;">#</th>
+                        <th style="padding: 12px 14px; text-align: left; font-weight: 700; color: #334155; width: 230px; border-right: 1px solid #e2e8f0;">STUDENT DETAILS</th>
+                        <th style="padding: 12px 10px; text-align: center; width: 120px; border-right: 1px solid #e2e8f0;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.76rem; background: #fef3c7; color: #92400e; border: 1px solid #fde68a;">
+                                Confidence (0–10)
+                            </span>
+                        </th>
+                        <th style="padding: 12px 10px; text-align: center; width: 130px; border-right: 1px solid #e2e8f0;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.76rem; background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0;">
+                                Communication (0–10)
+                            </span>
+                        </th>
+                        <th style="padding: 12px 10px; text-align: center; width: 120px; border-right: 1px solid #e2e8f0;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.76rem; background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd;">
+                                Technical (0–10)
+                            </span>
+                        </th>
+                        <th style="padding: 12px 10px; text-align: center; width: 135px; border-right: 1px solid #e2e8f0;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.76rem; background: #ede9fe; color: #5b21b6; border: 1px solid #ddd6fe;">
+                                Marks / 10
+                            </span>
+                        </th>
+                        <th style="padding: 12px 14px; text-align: left; border-right: 1px solid #e2e8f0;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 9999px; font-weight: 700; font-size: 0.76rem; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;">
+                                Evaluator Feedback & Notes
+                            </span>
+                        </th>
+                        <th style="padding: 12px 10px; text-align: center; width: 95px;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 9999px; font-weight: 700; font-size: 0.76rem; background: #ffe4e6; color: #be123c; border: 1px solid #fecdd3;">
+                                Absent
+                            </span>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var groupName in DistinctGroups)
+                    {
+                        var groupItems = GetGroupEvaluations(groupName);
+                        if (groupItems.Any())
+                        {
+                            <!-- Modern Group Ribbon -->
+                            <tr style="background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%); border-top: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe; border-left: 4px solid #2563eb;">
+                                <td colspan="8" style="padding: 10px 16px; font-weight: 800; font-size: 0.92rem; color: #1e40af; text-align: left; letter-spacing: 0.02em;">
+                                    <div class="d-flex justify-space-between align-center">
+                                        <div class="d-flex align-center gap-2">
+                                            <span style="background: #2563eb; color: #ffffff; padding: 2px 10px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700;">@groupName</span>
+                                            <span style="color: #3b82f6; font-weight: 600; font-size: 0.84rem;">@groupItems.Count student(s) allocated</span>
+                                        </div>
+                                        <small style="font-weight: 600; color: #64748b; font-size: 0.78rem;">M.Tech Data Centre Technology</small>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            int sr = 1;
+                            foreach (var item in groupItems)
+                            {
+                                var isModified = _modifiedEvaluationIds.Contains(item.Id);
+                                <tr style="border-bottom: 1px solid #f1f5f9; background: @(item.IsAbsent ? "#fef2f2" : (isModified ? "#f0fdf4" : "#ffffff")); transition: background 0.15s ease;">
+                                    <!-- Sr -->
+                                    <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #64748b; width: 50px; border-right: 1px solid #f1f5f9;">
+                                        @(sr++)
+                                        @if (isModified)
+                                        {
+                                            <span title="Unsaved changes" style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-left: 3px; vertical-align: middle; box-shadow: 0 0 6px rgba(16,185,129,0.5);"></span>
+                                        }
+                                    </td>
+
+                                    <!-- STUDENT NAME -->
+                                    <td style="padding: 8px 12px; font-weight: 700; color: #0f172a; width: 230px; border-right: 1px solid #f1f5f9;">
+                                        <div class="d-flex flex-column">
+                                            <span style="font-size: 0.94rem; color: #0f172a; font-weight: 700;">@item.Student?.FullName</span>
+                                            <div class="d-flex align-center gap-2 mt-1">
+                                                <select value="@item.StudentGroup" @onchange="@((ChangeEventArgs e) => OnGroupChanged(item, e.Value?.ToString()))"
+                                                        style="font-size: 0.74rem; padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; color: #475569; outline: none; cursor: pointer; font-weight: 600;">
+                                                    <option value="Group A">Group A</option>
+                                                    <option value="Group B">Group B</option>
+                                                    <option value="Group C">Group C</option>
+                                                    <option value="Group D">Group D</option>
+                                                </select>
+                                                <span style="font-size: 0.74rem; color: #94a3b8; font-weight: 500;">Roll: @(item.Student?.StudentCode ?? "—")</span>
+                                            </div>
+                                        </div>
+                                    </td>
+
+                                    <!-- Confidence (Soft Yellow) -->
+                                    <td style="padding: 6px 8px; text-align: center; width: 120px; border-right: 1px solid #f1f5f9;">
+                                        <input type="number" min="0" max="10" step="0.5"
+                                               disabled="@item.IsAbsent"
+                                               value="@(item.ConfidenceScore?.ToString("0.#") ?? "")"
+                                               @onchange="@((ChangeEventArgs e) => OnConfidenceChanged(item, e.Value?.ToString()))"
+                                               placeholder="0–10"
+                                               style="width: 100%; text-align: center; font-weight: 700; font-size: 0.95rem; color: #78350f; padding: 6px 8px; border: 1px solid @(item.IsAbsent ? "#e2e8f0" : "#fde68a"); border-radius: 8px; background: @(item.IsAbsent ? "#f1f5f9" : "#fffbeb"); outline: none;" />
+                                    </td>
+
+                                    <!-- Communication (Soft Emerald) -->
+                                    <td style="padding: 6px 8px; text-align: center; width: 130px; border-right: 1px solid #f1f5f9;">
+                                        <input type="number" min="0" max="10" step="0.5"
+                                               disabled="@item.IsAbsent"
+                                               value="@(item.CommunicationScore?.ToString("0.#") ?? "")"
+                                               @onchange="@((ChangeEventArgs e) => OnCommunicationChanged(item, e.Value?.ToString()))"
+                                               placeholder="0–10"
+                                               style="width: 100%; text-align: center; font-weight: 700; font-size: 0.95rem; color: #065f46; padding: 6px 8px; border: 1px solid @(item.IsAbsent ? "#e2e8f0" : "#a7f3d0"); border-radius: 8px; background: @(item.IsAbsent ? "#f1f5f9" : "#ecfdf5"); outline: none;" />
+                                    </td>
+
+                                    <!-- Technical (Soft Sky Blue) -->
+                                    <td style="padding: 6px 8px; text-align: center; width: 120px; border-right: 1px solid #f1f5f9;">
+                                        <input type="number" min="0" max="10" step="0.5"
+                                               disabled="@item.IsAbsent"
+                                               value="@(item.TechnicalScore?.ToString("0.#") ?? "")"
+                                               @onchange="@((ChangeEventArgs e) => OnTechnicalChanged(item, e.Value?.ToString()))"
+                                               placeholder="0–10"
+                                               style="width: 100%; text-align: center; font-weight: 700; font-size: 0.95rem; color: #0369a1; padding: 6px 8px; border: 1px solid @(item.IsAbsent ? "#e2e8f0" : "#bae6fd"); border-radius: 8px; background: @(item.IsAbsent ? "#f1f5f9" : "#f0f9ff"); outline: none;" />
+                                    </td>
+
+                                    <!-- Marks out of 10 (Soft Violet) -->
+                                    <td style="padding: 6px 8px; text-align: center; width: 135px; border-right: 1px solid #f1f5f9;">
+                                        @if (item.IsAbsent)
+                                        {
+                                            <span style="display: inline-block; padding: 4px 10px; font-size: 0.78rem; font-weight: 700; color: #be123c; background: #ffe4e6; border-radius: 6px;">
+                                                ABSENT
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <input type="number" min="0" max="10" step="0.5"
+                                                   value="@(item.MarksOutOf10?.ToString("0.#") ?? "")"
+                                                   @onchange="@((ChangeEventArgs e) => OnMarksChanged(item, e.Value?.ToString()))"
+                                                   placeholder="Score"
+                                                   style="width: 100%; text-align: center; font-weight: 800; font-size: 1.05rem; color: @GetMarksColor(item.MarksOutOf10); padding: 6px 8px; border: 1px solid #ddd6fe; border-radius: 8px; background: #f5f3ff; outline: none;" />
+                                        }
+                                    </td>
+
+                                    <!-- Feedback -->
+                                    <td style="padding: 6px 10px; border-right: 1px solid #f1f5f9;">
+                                        <textarea rows="2"
+                                                  value="@item.Feedback"
+                                                  @onchange="@((ChangeEventArgs e) => OnFeedbackChanged(item, e.Value?.ToString()))"
+                                                  placeholder="Feedback, concept clarity, SQL queries, areas of improvement..."
+                                                  style="width: 100%; font-size: 0.84rem; line-height: 1.4; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff; color: #1e293b; resize: vertical; outline: none;"></textarea>
+                                    </td>
+
+                                    <!-- Absent Toggle / Action -->
+                                    <td style="padding: 6px 8px; text-align: center; width: 95px;">
+                                        <button type="button" @onclick="@(() => OnAbsentToggled(item, !item.IsAbsent))"
+                                                style="display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; border: 1px solid @(item.IsAbsent ? "#fecdd3" : "#e2e8f0"); background: @(item.IsAbsent ? "#ffe4e6" : "#f8fafc"); color: @(item.IsAbsent ? "#be123c" : "#64748b"); cursor: pointer; transition: all 0.2s;">
+                                            <span>@(item.IsAbsent ? "❌ Absent" : "✔ Present")</span>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    }
+                </tbody>
+            </table>
+        </MudPaper>
+    }
+</MudContainer>
+
+<!-- Dialog: Add Student to Drive -->
+<MudDialog @bind-Visible="_addStudentVisible" Options="_smallDialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight: 700;">Add Student to Mock Feedback Sheet</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudSelect T="int" @bind-Value="_newStudentId" Label="Select Student" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+            @foreach (var s in _availableStudents)
+            {
+                <MudSelectItem Value="@s.Id">@s.FullName (@s.StudentCode)</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect T="string" @bind-Value="_newStudentGroup" Label="Group" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+            <MudSelectItem Value="@("Group A")">Group A</MudSelectItem>
+            <MudSelectItem Value="@("Group B")">Group B</MudSelectItem>
+            <MudSelectItem Value="@("Group C")">Group C</MudSelectItem>
+            <MudSelectItem Value="@("Group D")">Group D</MudSelectItem>
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _addStudentVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveAddStudent">Add Student</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Schedule Flexible Month-End Drive -->
+<MudDialog @bind-Visible="_createDriveVisible" Options="_mediumDialogOptions">
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Color="Color.Primary" />
+            <MudText Typo="Typo.h6" Style="font-weight: 700;">Schedule Month-End Mock Interview</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <!-- 1-Click Flexible Month-End Presets -->
+        <div class="pa-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 6px;">
+                ⚡ 1-CLICK FLEXIBLE MONTH-END PRESETS:
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => ApplyDatePreset(GetLastSaturday(DateTime.Today)))">
+                    Last Saturday (@GetLastSaturday(DateTime.Today).ToString("dd MMM"))
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => ApplyDatePreset(GetLastSunday(DateTime.Today)))">
+                    Last Sunday (@GetLastSunday(DateTime.Today).ToString("dd MMM"))
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small"
+                           OnClick="@(() => ApplyDatePreset(GetLastSaturday(DateTime.Today.AddMonths(1))))">
+                    Next Month (@GetLastSaturday(DateTime.Today.AddMonths(1)).ToString("dd MMM"))
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           OnClick="@(() => ApplyDatePreset(DateTime.Today))">
+                    Today
+                </MudButton>
+            </div>
+        </div>
+
+        <MudDatePicker @bind-Date="_newDriveDate" Label="Drive Date (Flexible)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+        <MudTextField @bind-Value="_newDriveTitle" Label="Drive Title" Placeholder="e.g. Mock Feedback — Month End September 2026" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
+
+        <div class="d-flex gap-3 mb-3">
+            <MudSelect T="string" @bind-Value="_newDriveStatus" Label="Drive Status" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex: 1;">
+                <MudSelectItem Value="@("Scheduled")">Scheduled</MudSelectItem>
+                <MudSelectItem Value="@("In Progress")">In Progress</MudSelectItem>
+                <MudSelectItem Value="@("Completed")">Completed</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="int?" @bind-Value="_newDriveLeadInterviewerId" Label="Panel Lead / Interviewer" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex: 1;">
+                <MudSelectItem Value="@((int?)null)">-- Select Faculty (Optional) --</MudSelectItem>
+                @foreach (var f in _faculties)
+                {
+                    <MudSelectItem Value="@((int?)f.Id)">@f.FullName (@f.Organization)</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+
+        <MudTextField @bind-Value="_newDriveNotes" Label="Focus Areas & Panel Notes" Placeholder="e.g. Month-end evaluation: SQL complex joins, DBMS theory, communication, and DC concepts." Lines="2" Variant="Variant.Outlined" Margin="Margin.Dense" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _createDriveVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SaveNewDrive">Schedule Drive</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Reschedule / Edit Drive -->
+<MudDialog @bind-Visible="_editDriveVisible" Options="_mediumDialogOptions">
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.EditCalendar" Color="Color.Primary" />
+            <MudText Typo="Typo.h6" Style="font-weight: 700;">Reschedule / Edit Mock Drive</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="pa-3 mb-3" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #475569; margin-bottom: 6px;">
+                ⚡ QUICK RESCHEDULE PRESETS:
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => ApplyEditDatePreset(GetLastSaturday(DateTime.Today)))">
+                    Last Sat (@GetLastSaturday(DateTime.Today).ToString("dd MMM"))
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => ApplyEditDatePreset(GetLastSunday(DateTime.Today)))">
+                    Last Sun (@GetLastSunday(DateTime.Today).ToString("dd MMM"))
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" Size="Size.Small"
+                           OnClick="@(() => ApplyEditDatePreset(GetLastSaturday(DateTime.Today.AddMonths(1))))">
+                    Next Month (@GetLastSaturday(DateTime.Today.AddMonths(1)).ToString("dd MMM"))
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           OnClick="@(() => ApplyEditDatePreset(DateTime.Today))">
+                    Today
+                </MudButton>
+            </div>
+        </div>
+
+        <MudDatePicker @bind-Date="_editingDriveDate" Label="Drive Date (Flexible)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+        <MudTextField @bind-Value="_editingDriveTitle" Label="Drive Title" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
+
+        <div class="d-flex gap-3 mb-3">
+            <MudSelect T="string" @bind-Value="_editingDriveStatus" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex: 1;">
+                <MudSelectItem Value="@("Scheduled")">Scheduled</MudSelectItem>
+                <MudSelectItem Value="@("In Progress")">In Progress</MudSelectItem>
+                <MudSelectItem Value="@("Completed")">Completed</MudSelectItem>
+            </MudSelect>
+
+            <MudSelect T="int?" @bind-Value="_editingDriveLeadInterviewerId" Label="Panel Lead / Interviewer" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex: 1;">
+                <MudSelectItem Value="@((int?)null)">-- Keep Current --</MudSelectItem>
+                @foreach (var f in _faculties)
+                {
+                    <MudSelectItem Value="@((int?)f.Id)">@f.FullName (@f.Organization)</MudSelectItem>
+                }
+            </MudSelect>
+        </div>
+
+        <MudTextField @bind-Value="_editingDriveNotes" Label="Focus Areas & Panel Notes" Lines="2" Variant="Variant.Outlined" Margin="Margin.Dense" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _editDriveVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SaveEditDrive">Update Drive</MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Delete Drive Confirmation -->
+<MudDialog @bind-Visible="_deleteDriveVisible" Options="_smallDialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Style="font-weight: 700; color: #dc2626;">Delete Mock Interview Drive</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body1" Class="mb-2">
+            Are you sure you want to delete <strong>@_activeDrive?.Title</strong>?
+        </MudText>
+        <MudText Typo="Typo.body2" Style="color: #64748b;">
+            All student evaluation entries and scores associated with this drive will be permanently removed.
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _deleteDriveVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="ConfirmDeleteDrive">Delete Drive</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<MockInterviewDrive> _drives = new();
+    private MockInterviewDrive? _activeDrive;
+    private List<MockInterviewEvaluation> _evaluations = new();
+    private MockInterviewReadinessStats _stats = new();
+    private List<Faculty> _faculties = new();
+
+    private int _selectedDriveId;
+    private string _searchQuery = "";
+    private HashSet<int> _modifiedEvaluationIds = new();
+
+    private bool _addStudentVisible;
+    private int _newStudentId;
+    private string _newStudentGroup = "Group A";
+    private List<Student> _availableStudents = new();
+
+    private bool _createDriveVisible;
+    private string _newDriveTitle = "";
+    private DateTime? _newDriveDate = GetLastSaturday(DateTime.Today);
+    private string _newDriveStatus = "Scheduled";
+    private int? _newDriveLeadInterviewerId;
+    private string? _newDriveNotes;
+
+    private bool _editDriveVisible;
+    private string _editingDriveTitle = "";
+    private DateTime? _editingDriveDate;
+    private string _editingDriveStatus = "Scheduled";
+    private int? _editingDriveLeadInterviewerId;
+    private string? _editingDriveNotes;
+
+    private bool _deleteDriveVisible;
+
+    private DialogOptions _smallDialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
+    private DialogOptions _mediumDialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _faculties = await FacultySvc.GetAllAsync();
+        await LoadDrives();
+    }
+
+    private async Task LoadDrives()
+    {
+        _drives = await InterviewSvc.GetDrivesAsync();
+        if (_drives.Any())
+        {
+            if (_selectedDriveId == 0 || !_drives.Any(d => d.Id == _selectedDriveId))
+                _selectedDriveId = _drives.First().Id;
+
+            await LoadActiveDrive();
+        }
+        else
+        {
+            _activeDrive = null;
+            _evaluations = new();
+            _stats = new();
+        }
+    }
+
+    private async Task OnDriveChanged(int driveId)
+    {
+        if (_modifiedEvaluationIds.Any())
+        {
+            await SaveAllChanges();
+        }
+
+        _selectedDriveId = driveId;
+        await LoadActiveDrive();
+    }
+
+    private async Task LoadActiveDrive()
+    {
+        if (_selectedDriveId > 0)
+        {
+            _activeDrive = await InterviewSvc.GetDriveWithEvaluationsAsync(_selectedDriveId);
+            _evaluations = _activeDrive?.Evaluations.ToList() ?? new();
+            _stats = await InterviewSvc.GetOverallReadinessStatsAsync(_selectedDriveId);
+            _modifiedEvaluationIds.Clear();
+        }
+    }
+
+    private string? GetLeadInterviewerName()
+    {
+        var facultyId = _evaluations.FirstOrDefault(e => e.InterviewerFacultyId.HasValue)?.InterviewerFacultyId;
+        if (facultyId.HasValue)
+        {
+            return _faculties.FirstOrDefault(f => f.Id == facultyId.Value)?.FullName;
+        }
+        return null;
+    }
+
+    private static DateTime GetLastDayOfWeekOfMonth(DateTime refDate, DayOfWeek dayOfWeek)
+    {
+        var daysInMonth = DateTime.DaysInMonth(refDate.Year, refDate.Month);
+        var lastDay = new DateTime(refDate.Year, refDate.Month, daysInMonth);
+        while (lastDay.DayOfWeek != dayOfWeek)
+        {
+            lastDay = lastDay.AddDays(-1);
+        }
+        return lastDay;
+    }
+
+    private static DateTime GetLastSaturday(DateTime refDate) => GetLastDayOfWeekOfMonth(refDate, DayOfWeek.Saturday);
+    private static DateTime GetLastSunday(DateTime refDate) => GetLastDayOfWeekOfMonth(refDate, DayOfWeek.Sunday);
+
+    private void ApplyDatePreset(DateTime date)
+    {
+        _newDriveDate = date;
+        _newDriveTitle = $"Mock Feedback — {date:dd-MM-yyyy}";
+        _newDriveNotes = $"Month-end student interview evaluation for {date:MMMM yyyy}. Focus: SQL complex joins, DBMS theory, communication, and DC concepts.";
+        _newDriveStatus = date > DateTime.Today ? "Scheduled" : "Completed";
+    }
+
+    private void ApplyEditDatePreset(DateTime date)
+    {
+        _editingDriveDate = date;
+        _editingDriveTitle = $"Mock Feedback — {date:dd-MM-yyyy}";
+    }
+
+    private IEnumerable<string> DistinctGroups
+    {
+        get
+        {
+            return _evaluations
+                .Select(e => string.IsNullOrWhiteSpace(e.StudentGroup) ? "Group A" : e.StudentGroup)
+                .Distinct()
+                .OrderBy(g => g);
+        }
+    }
+
+    private List<MockInterviewEvaluation> GetGroupEvaluations(string groupName)
+    {
+        var list = _evaluations.Where(e => (string.IsNullOrWhiteSpace(e.StudentGroup) ? "Group A" : e.StudentGroup) == groupName);
+
+        if (!string.IsNullOrWhiteSpace(_searchQuery))
+        {
+            list = list.Where(e => (e.Student?.FullName.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        return list.ToList();
+    }
+
+    private void OnConfidenceChanged(MockInterviewEvaluation item, string? rawValue)
+    {
+        if (decimal.TryParse(rawValue, out var val))
+            item.ConfidenceScore = Math.Clamp(val, 0, 10);
+        else
+            item.ConfidenceScore = null;
+
+        _modifiedEvaluationIds.Add(item.Id);
+    }
+
+    private void OnCommunicationChanged(MockInterviewEvaluation item, string? rawValue)
+    {
+        if (decimal.TryParse(rawValue, out var val))
+            item.CommunicationScore = Math.Clamp(val, 0, 10);
+        else
+            item.CommunicationScore = null;
+
+        _modifiedEvaluationIds.Add(item.Id);
+    }
+
+    private void OnTechnicalChanged(MockInterviewEvaluation item, string? rawValue)
+    {
+        if (decimal.TryParse(rawValue, out var val))
+            item.TechnicalScore = Math.Clamp(val, 0, 10);
+        else
+            item.TechnicalScore = null;
+
+        _modifiedEvaluationIds.Add(item.Id);
+    }
+
+    private void OnMarksChanged(MockInterviewEvaluation item, string? rawValue)
+    {
+        if (decimal.TryParse(rawValue, out var val))
+            item.MarksOutOf10 = Math.Clamp(val, 0, 10);
+        else
+            item.MarksOutOf10 = null;
+
+        _modifiedEvaluationIds.Add(item.Id);
+    }
+
+    private void OnFeedbackChanged(MockInterviewEvaluation item, string? rawValue)
+    {
+        item.Feedback = rawValue;
+        _modifiedEvaluationIds.Add(item.Id);
+    }
+
+    private void OnGroupChanged(MockInterviewEvaluation item, string? group)
+    {
+        if (!string.IsNullOrWhiteSpace(group))
+        {
+            item.StudentGroup = group;
+            _modifiedEvaluationIds.Add(item.Id);
+        }
+    }
+
+    private void OnAbsentToggled(MockInterviewEvaluation item, bool isAbsent)
+    {
+        item.IsAbsent = isAbsent;
+        if (isAbsent)
+        {
+            item.ConfidenceScore = null;
+            item.CommunicationScore = null;
+            item.TechnicalScore = null;
+            item.MarksOutOf10 = null;
+            item.Status = "Absent";
+            if (string.IsNullOrWhiteSpace(item.Feedback))
+            {
+                item.Feedback = "absent";
+            }
+        }
+        else
+        {
+            item.Status = "Completed";
+            if (item.Feedback == "absent")
+            {
+                item.Feedback = "";
+            }
+        }
+        _modifiedEvaluationIds.Add(item.Id);
+    }
+
+    private void AutoCalculateMarks()
+    {
+        int count = 0;
+        foreach (var item in _evaluations.Where(e => !e.IsAbsent))
+        {
+            if (item.ConfidenceScore.HasValue && item.CommunicationScore.HasValue && item.TechnicalScore.HasValue)
+            {
+                var avg = Math.Round((item.ConfidenceScore.Value + item.CommunicationScore.Value + item.TechnicalScore.Value) / 3m, 1);
+                if (item.MarksOutOf10 != avg)
+                {
+                    item.MarksOutOf10 = avg;
+                    _modifiedEvaluationIds.Add(item.Id);
+                    count++;
+                }
+            }
+        }
+
+        if (count > 0)
+        {
+            Snackbar.Add($"Calculated marks for {count} student(s). Click 'Save Changes' to apply.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("All eligible students already have calculated marks.", Severity.Info);
+        }
+    }
+
+    private async Task SaveAllChanges()
+    {
+        if (!_modifiedEvaluationIds.Any())
+        {
+            Snackbar.Add("No unsaved changes.", Severity.Info);
+            return;
+        }
+
+        try
+        {
+            var modifiedItems = _evaluations.Where(e => _modifiedEvaluationIds.Contains(e.Id)).ToList();
+            await InterviewSvc.SaveEvaluationsBatchAsync(modifiedItems);
+            _modifiedEvaluationIds.Clear();
+            _stats = await InterviewSvc.GetOverallReadinessStatsAsync(_selectedDriveId);
+            Snackbar.Add($"Saved {modifiedItems.Count} student evaluation(s) successfully.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving evaluations: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DiscardChanges()
+    {
+        _modifiedEvaluationIds.Clear();
+        await LoadActiveDrive();
+        Snackbar.Add("Unsaved changes discarded.", Severity.Normal);
+    }
+
+    private async Task OpenAddStudentDialog()
+    {
+        if (_selectedDriveId <= 0) return;
+        _availableStudents = await InterviewSvc.GetAvailableStudentsForDriveAsync(_selectedDriveId);
+        if (!_availableStudents.Any())
+        {
+            Snackbar.Add("All enrolled students are already added to this mock interview drive.", Severity.Info);
+            return;
+        }
+        _newStudentId = _availableStudents.First().Id;
+        _newStudentGroup = "Group A";
+        _addStudentVisible = true;
+    }
+
+    private async Task SaveAddStudent()
+    {
+        if (_newStudentId <= 0 || _selectedDriveId <= 0) return;
+        try
+        {
+            await InterviewSvc.AddStudentToDriveAsync(_selectedDriveId, _newStudentId, _newStudentGroup);
+            _addStudentVisible = false;
+            Snackbar.Add("Student added to mock feedback sheet.", Severity.Success);
+            await LoadActiveDrive();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error adding student: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void OpenCreateDriveDialog()
+    {
+        var defaultDate = GetLastSaturday(DateTime.Today);
+        _newDriveDate = defaultDate;
+        _newDriveTitle = $"Mock Feedback — {defaultDate:dd-MM-yyyy}";
+        _newDriveStatus = defaultDate > DateTime.Today ? "Scheduled" : "Completed";
+        _newDriveLeadInterviewerId = _faculties.FirstOrDefault(f => f.FullName.Contains("Siddu") || f.Organization == "NIRVAA")?.Id;
+        _newDriveNotes = $"Month-end corporate interview drive for {defaultDate:MMMM yyyy}. Evaluating Confidence, Communication, and Technical SQL & DC skills.";
+        _createDriveVisible = true;
+    }
+
+    private async Task SaveNewDrive()
+    {
+        if (string.IsNullOrWhiteSpace(_newDriveTitle))
+        {
+            Snackbar.Add("Please enter drive title.", Severity.Warning);
+            return;
+        }
+
+        var semester = await CourseSvc.GetActiveSemesterAsync() ?? (await CourseSvc.GetSemestersAsync()).FirstOrDefault();
+        if (semester == null) return;
+
+        var drive = new MockInterviewDrive
+        {
+            SemesterId = semester.Id,
+            Title = _newDriveTitle.Trim(),
+            DriveDate = _newDriveDate ?? DateTime.Today,
+            Status = _newDriveStatus,
+            PanelNotes = _newDriveNotes?.Trim()
+        };
+
+        try
+        {
+            var created = await InterviewSvc.CreateDriveAsync(drive, _newDriveLeadInterviewerId);
+            _createDriveVisible = false;
+            _selectedDriveId = created.Id;
+            Snackbar.Add("Mock feedback drive scheduled successfully.", Severity.Success);
+            await LoadDrives();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void OpenEditDriveDialog()
+    {
+        if (_activeDrive == null) return;
+
+        _editingDriveTitle = _activeDrive.Title;
+        _editingDriveDate = _activeDrive.DriveDate;
+        _editingDriveStatus = _activeDrive.Status;
+        _editingDriveNotes = _activeDrive.PanelNotes;
+        _editingDriveLeadInterviewerId = _evaluations.FirstOrDefault(e => e.InterviewerFacultyId.HasValue)?.InterviewerFacultyId;
+
+        _editDriveVisible = true;
+    }
+
+    private async Task SaveEditDrive()
+    {
+        if (_activeDrive == null) return;
+        if (string.IsNullOrWhiteSpace(_editingDriveTitle))
+        {
+            Snackbar.Add("Please enter a title.", Severity.Warning);
+            return;
+        }
+
+        _activeDrive.Title = _editingDriveTitle.Trim();
+        _activeDrive.DriveDate = _editingDriveDate ?? _activeDrive.DriveDate;
+        _activeDrive.Status = _editingDriveStatus;
+        _activeDrive.PanelNotes = _editingDriveNotes?.Trim();
+
+        try
+        {
+            await InterviewSvc.UpdateDriveAsync(_activeDrive, _editingDriveLeadInterviewerId);
+            _editDriveVisible = false;
+            Snackbar.Add("Drive details and schedule updated.", Severity.Success);
+            await LoadDrives();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private void OpenDeleteDriveDialog()
+    {
+        if (_activeDrive == null) return;
+        _deleteDriveVisible = true;
+    }
+
+    private async Task ConfirmDeleteDrive()
+    {
+        if (_selectedDriveId <= 0) return;
+
+        try
+        {
+            await InterviewSvc.DeleteDriveAsync(_selectedDriveId);
+            _deleteDriveVisible = false;
+            _selectedDriveId = 0;
+            Snackbar.Add("Mock interview drive deleted.", Severity.Success);
+            await LoadDrives();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetMarksColor(decimal? marks)
+    {
+        if (!marks.HasValue) return "#475569";
+        if (marks.Value >= 8.5m) return "#15803d"; // Green
+        if (marks.Value >= 6.0m) return "#1d4ed8"; // Blue
+        return "#b45309"; // Amber
+    }
+
+    private string GetDriveStatusBorderColor(string? status) => status switch
+    {
+        "Completed" => "#10b981",
+        "In Progress" => "#8b5cf6",
+        _ => "#2563eb"
+    };
+
+    private Color GetDriveStatusChipColor(string? status) => status switch
+    {
+        "Completed" => Color.Success,
+        "In Progress" => Color.Secondary,
+        _ => Color.Info
+    };
+
+    private string GetDriveBadgeBackground(string? status) => status switch
+    {
+        "Completed" => "#dcfce7",
+        "In Progress" => "#f3e8ff",
+        _ => "#dbeafe"
+    };
+
+    private string GetDriveBadgeColor(string? status) => status switch
+    {
+        "Completed" => "#166534",
+        "In Progress" => "#6b21a8",
+        _ => "#1e40af"
+    };
+
+    private async Task ExportCsv()
+    {
+        if (!_evaluations.Any())
+        {
+            Snackbar.Add("No evaluations to export.", Severity.Warning);
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Sr,STUDENT NAME,Confidence,Communication,Technical,Marks out of 10,Feedback");
+
+        foreach (var group in DistinctGroups)
+        {
+            sb.AppendLine($",,,{group},,,");
+            int sr = 1;
+            foreach (var e in GetGroupEvaluations(group))
+            {
+                var conf = e.IsAbsent ? "" : (e.ConfidenceScore?.ToString("0.#") ?? "");
+                var comm = e.IsAbsent ? "" : (e.CommunicationScore?.ToString("0.#") ?? "");
+                var tech = e.IsAbsent ? "" : (e.TechnicalScore?.ToString("0.#") ?? "");
+                var marks = e.IsAbsent ? "absent" : (e.MarksOutOf10?.ToString("0.#") ?? "");
+                var cleanFeedback = (e.Feedback ?? "").Replace("\"", "\"\"");
+
+                sb.AppendLine($"{sr++},\"{e.Student?.FullName}\",{conf},{comm},{tech},{marks},\"{cleanFeedback}\"");
+            }
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"{(_activeDrive?.Title ?? "MockFeedback").Replace(" ", "_")}.csv";
+
+        await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv;charset=utf-8", base64);
+        Snackbar.Add("Mock Feedback sheet downloaded.", Severity.Success);
+    }
+}

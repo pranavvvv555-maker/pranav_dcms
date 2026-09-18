@@ -1,0 +1,256 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject SessionService SessionSvc
+@inject FacultyService FacultySvc
+@inject PaymentService PaymentSvc
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IWebHostEnvironment HostEnv
+@inject NavigationManager Navigation
+
+<PageTitle>DCMS — Reports</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Payment overview</span>
+            <MudText Typo="Typo.h4">Reports</MudText>
+            <MudText Typo="Typo.body2">See this month’s classes, fees, and estimated pay in one clear place.</MudText>
+        </div>
+        <span class="status-pill" style="background:#eef6fc; color:#1d5e96; border:1px solid #cce2f2;">
+            @DateTime.Now.ToString("MMMM yyyy")
+        </span>
+    </section>
+
+    <MudPaper Elevation="0" Class="payroll-breakdown-card">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+            <div>
+                <span class="premium-eyebrow">Live snapshot</span>
+                <MudText Typo="Typo.h6">Faculty payment overview</MudText>
+                <MudText Typo="Typo.body2">Only completed classes are included here.</MudText>
+            </div>
+            <span class="payroll-breakdown-card__total">₹@_monthlySummary.Sum(item => item.EstimatedPay).ToString("N0")</span>
+        </MudStack>
+
+        @if (_monthlySummary.Any())
+        {
+            <div class="simple-table">
+                <MudDataGrid Items="@_monthlySummary" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <TemplateColumn Title="Professor">
+                            <CellTemplate>
+                                <MudText Typo="Typo.subtitle2">@context.Item.FacultyName</MudText>
+                                <MudText Typo="Typo.caption">@context.Item.Role</MudText>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Classes">
+                            <CellTemplate>
+                                <span class="class-count"><b>@context.Item.LectureCount</b> lectures · <b>@context.Item.PracticalCount</b> practicals</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Fees">
+                            <CellTemplate>
+                                @if (context.Item.LectureRate > 0 || context.Item.PracticalRate > 0)
+                                {
+                                    <span class="fee-inline">L ₹@context.Item.LectureRate.ToString("N0")</span>
+                                    <span class="fee-inline fee-inline--blue">P ₹@context.Item.PracticalRate.ToString("N0")</span>
+                                }
+                                else
+                                {
+                                    <span class="status-pill fee-badge-empty">Fees not set</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Estimated pay">
+                            <CellTemplate>
+                                <span class="payable-total">₹@context.Item.EstimatedPay.ToString("N0")</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+        }
+        else
+        {
+            <div class="simple-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.Assessment" />
+                <div>
+                    <MudText Typo="Typo.subtitle1">No faculty data yet</MudText>
+                    <MudText Typo="Typo.body2">Add professors and class fees to start seeing a payment snapshot.</MudText>
+                </div>
+            </div>
+        }
+    </MudPaper>
+
+    <MudExpansionPanels Class="payroll-history">
+        <MudExpansionPanel Text="Prepare a report">
+            <div class="pa-4">
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 800;">Download options</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Choose the report you need. Live PDF and Excel files will be generated and downloaded.</MudText>
+                <MudGrid Class="mt-2">
+                    <MudItem xs="12" sm="6">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Payments"
+                                   OnClick="DownloadMonthlySummaryPdf">
+                            Monthly payment summary (PDF)
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.FileDownload"
+                                   OnClick="DownloadFacultyRegisterExcel">
+                            Faculty class register (Excel)
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Receipt"
+                                   OnClick="DownloadFacultyPayslipsBundlePdf">
+                            All faculty payslips bundle (PDF)
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.Article"
+                                   OnClick="DownloadExecutiveSanctionCoverPagePdf">
+                            Executive Sanction Cover Page (PDF)
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Secondary" FullWidth="true" StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                   OnClick="DownloadExecutiveSanctionDossierPdf">
+                            Executive Sanction Dossier (Cover + Vouchers)
+                        </MudButton>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" StartIcon="@Icons.Material.Filled.AccountBalanceWallet"
+                                   OnClick="@(() => Navigation.NavigateTo("/payment-overview"))">
+                            Full compensation ledger & generator
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </div>
+        </MudExpansionPanel>
+    </MudExpansionPanels>
+</MudContainer>
+
+@code {
+    public class FacultySummaryRow
+    {
+        public string FacultyName { get; set; } = "";
+        public string Role { get; set; } = "";
+        public int LectureCount { get; set; }
+        public int PracticalCount { get; set; }
+        public decimal LectureRate { get; set; }
+        public decimal PracticalRate { get; set; }
+        public decimal EstimatedPay => (LectureCount * LectureRate) + (PracticalCount * PracticalRate);
+    }
+
+    private List<FacultySummaryRow> _monthlySummary = new();
+    private DateTime _monthStart;
+    private DateTime _monthEnd;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var faculties = await FacultySvc.GetAllAsync();
+        var today = DateTime.Today;
+        _monthStart = new DateTime(today.Year, today.Month, 1);
+        _monthEnd = _monthStart.AddMonths(1).AddDays(-1);
+
+        foreach (var faculty in faculties.Where(faculty => faculty.IsActive))
+        {
+            var classCounts = await SessionSvc.GetClassCountsAsync(faculty.Id, _monthStart, _monthEnd);
+            var rates = await FacultySvc.GetCurrentClassRatesAsync(faculty.Id);
+            _monthlySummary.Add(new FacultySummaryRow
+            {
+                FacultyName = faculty.FullName,
+                Role = faculty.Role,
+                LectureCount = classCounts.LectureCount,
+                PracticalCount = classCounts.PracticalCount,
+                LectureRate = rates?.LectureRateINR ?? 0,
+                PracticalRate = rates?.PracticalRateINR ?? 0
+            });
+        }
+    }
+
+    private async Task DownloadMonthlySummaryPdf()
+    {
+        try
+        {
+            var overview = await PaymentSvc.GetFacultyPaymentOverviewAsync(_monthStart, _monthEnd, _monthStart, _monthEnd);
+            var bytes = PaymentSvc.GenerateMonthlyPaymentPdf(overview, _monthStart, _monthEnd);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Faculty_Disbursement_{_monthStart:yyyy_MMMM}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add("Monthly summary PDF downloaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadFacultyRegisterExcel()
+    {
+        try
+        {
+            var overview = await PaymentSvc.GetFacultyPaymentOverviewAsync(_monthStart, _monthEnd, _monthStart, _monthEnd);
+            var bytes = PaymentSvc.ExportPaymentOverviewExcel(overview, _monthStart, _monthEnd, _monthStart, _monthEnd);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Faculty_Class_Register_{_monthStart:yyyy_MMM}.xlsx";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", base64);
+            Snackbar.Add("Faculty class register Excel exported.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadFacultyPayslipsBundlePdf()
+    {
+        try
+        {
+            var overview = await PaymentSvc.GetFacultyPaymentOverviewAsync(_monthStart, _monthEnd, _monthStart, _monthEnd);
+            var bytes = PaymentSvc.GenerateAllFacultyReceiptsPdf(overview, _monthStart, _monthEnd, HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"All_Faculty_Receipts_Bundle_{_monthStart:yyyy_MMMM}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add("All faculty receipts bundled and downloaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadExecutiveSanctionCoverPagePdf()
+    {
+        try
+        {
+            var data = await PaymentSvc.GetExecutiveSanctionDataAsync(_monthStart, _monthEnd);
+            var bytes = PaymentSvc.GenerateExecutiveSanctionCoverPagePdf(data, HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Executive_Sanction_CoverPage_{_monthStart:yyyyMMdd}_{_monthEnd:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add("Executive Sanction Cover Page downloaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadExecutiveSanctionDossierPdf()
+    {
+        try
+        {
+            var data = await PaymentSvc.GetExecutiveSanctionDataAsync(_monthStart, _monthEnd);
+            var bytes = PaymentSvc.GenerateExecutiveSanctionDossierPdf(data, HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = $"Executive_Sanction_Dossier_{_monthStart:yyyyMMdd}_{_monthEnd:yyyyMMdd}.pdf";
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add($"Executive Sanction Dossier (Cover + {data.FacultyItems.Count} Vouchers) downloaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Export failed: {ex.Message}", Severity.Error);
+        }
+    }
+}

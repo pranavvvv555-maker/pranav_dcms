@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: pranav-dcms
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: singapore
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production

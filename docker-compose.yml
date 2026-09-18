@@ -1,0 +1,16 @@
+services:
+  dcms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dcms-app
+    restart: unless-stopped
+    ports:
+      - "5025:5025"
+    volumes:
+      - dcms_data:/app/data
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+
+volumes:
+  dcms_data:

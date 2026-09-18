@@ -1,0 +1,420 @@
+@page "/students"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using DCMSApp.Data.Entities
+@using DCMSApp.Services
+@inject StudentService StudentSvc
+@inject ISnackbar Snackbar
+
+<PageTitle>DCMS — Students</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
+    <section class="page-intro">
+        <div>
+            <span class="premium-eyebrow">Academic cohort</span>
+            <MudText Typo="Typo.h4">Students</MudText>
+            <MudText Typo="Typo.body2">FY M.Tech CSE · Data Centre Systems Engineering · 2026–28 batch.</MudText>
+        </div>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <span class="status-pill" style="background:#effcf5; color:#087752; border:1px solid #c8e9da; font-weight:600;">
+                @_students.Count enrolled
+            </span>
+            @if (_maleCount > 0)
+            {
+                <span class="status-pill" style="background:#eef6ff; color:#1e40af; border:1px solid #bfdbfe;">
+                    @_maleCount Male
+                </span>
+            }
+            @if (_femaleCount > 0)
+            {
+                <span class="status-pill" style="background:#fdf2f8; color:#9d174d; border:1px solid #fbcfe8;">
+                    @_femaleCount Female
+                </span>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="OpenAddDialog" Class="btn-gradient-primary ms-2">
+                Add Student
+            </MudButton>
+        </MudStack>
+    </section>
+
+    <MudPaper Elevation="0" Class="faculty-list-card">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4 faculty-list-card__heading">
+            <div>
+                <MudText Typo="Typo.h6">Student directory</MudText>
+                <MudText Typo="Typo.body2">Complete cohort directory including university roll codes, mobile, and official email.</MudText>
+            </div>
+            <MudTextField @bind-Value="_searchText" Placeholder="Find student by name, roll, mobile, email..." Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" Immediate="true" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="faculty-search" Style="min-width: 320px;" />
+        </MudStack>
+
+        @if (FilteredStudents.Any())
+        {
+            <div class="simple-table">
+                <MudDataGrid Items="@FilteredStudents" Dense="true" Hover="true" Elevation="0">
+                    <Columns>
+                        <TemplateColumn Title="Student">
+                            <CellTemplate>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudAvatar Size="Size.Small" Class="faculty-avatar">@GetInitials(context.Item.FullName)</MudAvatar>
+                                    <div>
+                                        <MudText Typo="Typo.subtitle2">@context.Item.FullName</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">M.Tech CSE · DCSE</MudText>
+                                    </div>
+                                </MudStack>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Student code / PRN">
+                            <CellTemplate>
+                                <span class="type-pill" style="font-family: monospace; font-weight:600;">@context.Item.StudentCode</span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Gender">
+                            <CellTemplate>
+                                @if (context.Item.Gender == "F")
+                                {
+                                    <span class="status-pill" style="background:#fdf2f8; color:#9d174d; border:1px solid #fbcfe8; font-size:11px; padding:2px 8px;">Female</span>
+                                }
+                                else if (context.Item.Gender == "M")
+                                {
+                                    <span class="status-pill" style="background:#eef6ff; color:#1e40af; border:1px solid #bfdbfe; font-size:11px; padding:2px 8px;">Male</span>
+                                }
+                                else
+                                {
+                                    <span class="status-pill" style="font-size:11px; padding:2px 8px;">-</span>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Mobile Number">
+                            <CellTemplate>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.MobileNumber))
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Phone" Size="Size.Small" Style="font-size:14px; color:#64748b;" />
+                                        <a href="tel:@context.Item.MobileNumber" style="color:#0f172a; text-decoration:none; font-family:monospace; font-size:13px;">
+                                            @context.Item.MobileNumber
+                                        </a>
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Email">
+                            <CellTemplate>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.Email))
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Email" Size="Size.Small" Style="font-size:14px; color:#64748b;" />
+                                        <a href="mailto:@context.Item.Email" style="color:#2563eb; text-decoration:none; font-size:13px;">
+                                            @context.Item.Email
+                                        </a>
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">-</MudText>
+                                }
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Status">
+                            <CellTemplate>
+                                <span class="status-pill" style="@GetStatusStyle(context.Item.EnrollmentStatus)">
+                                    @GetStatusLabel(context.Item.EnrollmentStatus)
+                                </span>
+                            </CellTemplate>
+                        </TemplateColumn>
+                        <TemplateColumn Title="Actions" CellClass="text-right">
+                            <CellTemplate>
+                                <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd">
+                                    <MudTooltip Text="Edit student">
+                                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" aria-label="Edit student"
+                                                       Color="Color.Default" OnClick="@(() => OpenEditDialog(context.Item))" />
+                                    </MudTooltip>
+                                    <MudTooltip Text="Remove student">
+                                        <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.DeleteOutline" aria-label="Remove student"
+                                                       Color="Color.Error" OnClick="@(() => OpenDeleteDialog(context.Item))" />
+                                    </MudTooltip>
+                                </MudStack>
+                            </CellTemplate>
+                        </TemplateColumn>
+                    </Columns>
+                </MudDataGrid>
+            </div>
+        }
+        else
+        {
+            <div class="simple-empty-state">
+                <MudIcon Icon="@Icons.Material.Filled.PersonSearch" />
+                <div>
+                    <MudText Typo="Typo.subtitle1">No student found</MudText>
+                    <MudText Typo="Typo.body2">Try searching by name, PRN, email, or mobile number.</MudText>
+                </div>
+            </div>
+        }
+    </MudPaper>
+</MudContainer>
+
+<!-- Dialog: Add / Edit Student -->
+<MudDialog @bind-Visible="_dialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@(_isNew ? Icons.Material.Filled.PersonAdd : Icons.Material.Filled.Edit)" Color="Color.Primary" />
+            <MudText Typo="Typo.h6" Style="font-weight: 700;">@(_isNew ? "Add New Student" : "Edit Student Profile")</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: #64748b;">
+            @(_isNew ? "Enter the student's personal and academic details to register them into this cohort." : "Update this student's contact or enrollment details.")
+        </MudText>
+        <MudForm @ref="_form">
+            <MudTextField @bind-Value="_editingStudent.FullName" Label="Full Name"
+                          Placeholder="e.g. Sharma Rohit Anil" Required="true" RequiredError="Full name is required"
+                          Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudTextField @bind-Value="_editingStudent.StudentCode" Label="Student Code / PRN"
+                              Placeholder="e.g. 1272262320" Required="true" RequiredError="Student code is required"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex: 1;" />
+                @if (_isNew)
+                {
+                    <MudTooltip Text="Auto-generate next PRN code">
+                        <MudIconButton Icon="@Icons.Material.Filled.AutoAwesome" Color="Color.Primary"
+                                       Variant="Variant.Outlined" OnClick="AutoGenerateStudentCode" Style="margin-top: 4px;" />
+                    </MudTooltip>
+                }
+            </MudStack>
+
+            <MudGrid Class="mb-3">
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_editingStudent.Gender" Label="Gender" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@("M")">Male</MudSelectItem>
+                        <MudSelectItem Value="@("F")">Female</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_editingStudent.EnrollmentStatus" Label="Status" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        <MudSelectItem Value="@("Active")">Active</MudSelectItem>
+                        <MudSelectItem Value="@("Inactive")">Inactive</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudTextField @bind-Value="_editingStudent.MobileNumber" Label="Mobile Number (optional)"
+                          Placeholder="e.g. 9876543210" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Phone" />
+
+            <MudTextField @bind-Value="_editingStudent.Email" Label="Email Address (optional)"
+                          Placeholder="e.g. student@gmail.com" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+
+            @if (_semesters.Any())
+            {
+                <MudSelect T="int" @bind-Value="_editingStudent.SemesterId" Label="Semester / Cohort" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var sem in _semesters)
+                    {
+                        <MudSelectItem Value="@sem.Id">@sem.Name (@sem.AcademicYear)</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </MudForm>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _dialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveStudent" Disabled="@_isSaving">
+            @if (_isSaving)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <span class="ms-2">Saving...</span>
+            }
+            else
+            {
+                @(_isNew ? "Add Student" : "Save Changes")
+            }
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+<!-- Dialog: Delete Student Confirmation -->
+<MudDialog @bind-Visible="_deleteDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6" Color="Color.Error" Style="font-weight: 700;">Remove Student</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2">
+            Are you sure you want to remove <strong>@_deletingStudent?.FullName</strong> (@_deletingStudent?.StudentCode) from this cohort?
+        </MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _deleteDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="ConfirmDeleteStudent">Remove</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<Student> _students = new();
+    private List<Semester> _semesters = new();
+    private string _searchText = "";
+    private int _maleCount => _students.Count(s => s.Gender == "M");
+    private int _femaleCount => _students.Count(s => s.Gender == "F");
+
+    private bool _dialogVisible;
+    private bool _deleteDialogVisible;
+    private bool _isNew;
+    private bool _isSaving;
+    private Student _editingStudent = new();
+    private Student? _deletingStudent;
+    private MudForm? _form;
+
+    private IEnumerable<Student> FilteredStudents => string.IsNullOrWhiteSpace(_searchText)
+        ? _students
+        : _students.Where(student =>
+            (student.FullName?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (student.StudentCode?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (student.Email?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (student.MobileNumber?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _students = await StudentSvc.GetAllAsync();
+        _semesters = await StudentSvc.GetSemestersAsync();
+    }
+
+    private async Task OpenAddDialog()
+    {
+        _isNew = true;
+        var activeSem = await StudentSvc.GetActiveSemesterAsync();
+        var nextCode = await StudentSvc.GenerateNextStudentCodeAsync();
+
+        _editingStudent = new Student
+        {
+            StudentCode = nextCode,
+            FullName = "",
+            Gender = "M",
+            EnrollmentStatus = "Active",
+            SemesterId = activeSem?.Id ?? (_semesters.FirstOrDefault()?.Id ?? 1)
+        };
+        _dialogVisible = true;
+    }
+
+    private void OpenEditDialog(Student student)
+    {
+        _isNew = false;
+        _editingStudent = new Student
+        {
+            Id = student.Id,
+            StudentCode = student.StudentCode,
+            FullName = student.FullName,
+            Gender = student.Gender ?? "M",
+            MobileNumber = student.MobileNumber,
+            Email = student.Email,
+            SemesterId = student.SemesterId,
+            EnrollmentStatus = student.EnrollmentStatus
+        };
+        _dialogVisible = true;
+    }
+
+    private void OpenDeleteDialog(Student student)
+    {
+        _deletingStudent = student;
+        _deleteDialogVisible = true;
+    }
+
+    private async Task AutoGenerateStudentCode()
+    {
+        _editingStudent.StudentCode = await StudentSvc.GenerateNextStudentCodeAsync();
+        StateHasChanged();
+    }
+
+    private async Task SaveStudent()
+    {
+        if (string.IsNullOrWhiteSpace(_editingStudent.FullName))
+        {
+            Snackbar.Add("Student full name is required.", Severity.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_editingStudent.StudentCode))
+        {
+            Snackbar.Add("Student code / PRN is required.", Severity.Warning);
+            return;
+        }
+
+        // Check duplicate code
+        var isTaken = await StudentSvc.IsStudentCodeTakenAsync(_editingStudent.StudentCode, _editingStudent.Id);
+        if (isTaken)
+        {
+            Snackbar.Add($"Student code '{_editingStudent.StudentCode}' is already assigned to another student.", Severity.Error);
+            return;
+        }
+
+        try
+        {
+            _isSaving = true;
+
+            if (_isNew)
+            {
+                await StudentSvc.CreateAsync(_editingStudent);
+                Snackbar.Add($"Student '{_editingStudent.FullName}' added successfully.", Severity.Success);
+            }
+            else
+            {
+                await StudentSvc.UpdateAsync(_editingStudent);
+                Snackbar.Add($"Student '{_editingStudent.FullName}' updated successfully.", Severity.Success);
+            }
+
+            _dialogVisible = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error saving student: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ConfirmDeleteStudent()
+    {
+        if (_deletingStudent == null) return;
+
+        try
+        {
+            await StudentSvc.DeleteAsync(_deletingStudent.Id);
+            Snackbar.Add($"Student '{_deletingStudent.FullName}' removed.", Severity.Info);
+            _deleteDialogVisible = false;
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error deleting student: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private static string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "S";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpperInvariant()
+            : parts[0][0].ToString().ToUpperInvariant();
+    }
+
+    private static string GetStatusLabel(string? status)
+        => string.IsNullOrWhiteSpace(status) ? "Active" : status;
+
+    private static string GetStatusStyle(string? status)
+        => string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase)
+            ? "background:#effcf5; color:#087752; border:1px solid #c8e9da;"
+            : "background:#f5f8fb; color:#536b81; border:1px solid #dbe5ed;";
+}
