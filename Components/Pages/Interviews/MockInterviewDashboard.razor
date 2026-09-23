@@ -1,11 +1,13 @@
 @page "/mock-interviews"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Hosting
 @inject MockInterviewService InterviewSvc
 @inject MockInterviewImportService ImportSvc
 @inject FacultyService FacultySvc
 @inject CourseService CourseSvc
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
+@inject IWebHostEnvironment HostEnv
 
 <PageTitle>DCMS — Mock Feedback Spreadsheet</PageTitle>
 
@@ -22,6 +24,9 @@
         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
             <MudButton Variant="Variant.Outlined" Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.UploadFile" OnClick="OpenImportDialog">
                 Import Sheet
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Filled.PictureAsPdf" OnClick="ExportPdf">
+                Download PDF
             </MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="ExportCsv">
                 Export Sheet
@@ -1412,6 +1417,30 @@
 
         await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv;charset=utf-8", base64);
         Snackbar.Add("Mock Feedback sheet downloaded with subject details.", Severity.Success);
+    }
+
+    private async Task ExportPdf()
+    {
+        if (!_evaluations.Any())
+        {
+            Snackbar.Add("No evaluations to export.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var bytes = InterviewSvc.GenerateMockInterviewDrivePdf(_activeDrive, FilteredEvaluations.ToList(), HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var subjectCodeSafe = _activeDrive?.Course?.CourseCode ?? "MockFeedback";
+            var fileName = $"{(_activeDrive?.Title ?? "Mock_Interview_Scorecard").Replace(" ", "_")}_{subjectCodeSafe}.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "application/pdf", base64);
+            Snackbar.Add("Mock Interview PDF report downloaded successfully!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"PDF export failed: {ex.Message}", Severity.Error);
+        }
     }
 
     private void OpenImportDialog()
