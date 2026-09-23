@@ -272,7 +272,28 @@ public static class SeedData
             await db.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS MockInterviewEvaluations; DROP TABLE IF EXISTS MockInterviewDrives;");
         }
 
-        // 1. Ensure SQLite tables exist with exact 10-point scale factors
+        // Safely ensure CourseId and SubjectName exist on MockInterviewDrives and MockInterviewEvaluations
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("SELECT CourseId, SubjectName FROM MockInterviewDrives LIMIT 1;");
+        }
+        catch
+        {
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE MockInterviewDrives ADD COLUMN CourseId INTEGER NULL;"); } catch {}
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE MockInterviewDrives ADD COLUMN SubjectName TEXT NULL;"); } catch {}
+        }
+
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync("SELECT CourseId, SubjectName FROM MockInterviewEvaluations LIMIT 1;");
+        }
+        catch
+        {
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE MockInterviewEvaluations ADD COLUMN CourseId INTEGER NULL;"); } catch {}
+            try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE MockInterviewEvaluations ADD COLUMN SubjectName TEXT NULL;"); } catch {}
+        }
+
+        // 1. Ensure SQLite tables exist with exact 10-point scale factors and subject/course linkage
         await db.Database.ExecuteSqlRawAsync(@"
             CREATE TABLE IF NOT EXISTS ""MockInterviewDrives"" (
                 ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_MockInterviewDrives"" PRIMARY KEY AUTOINCREMENT,
@@ -281,7 +302,10 @@ public static class SeedData
                 ""DriveDate"" TEXT NOT NULL,
                 ""Status"" TEXT NOT NULL,
                 ""PanelNotes"" TEXT NULL,
-                CONSTRAINT ""FK_MockInterviewDrives_Semesters_SemesterId"" FOREIGN KEY (""SemesterId"") REFERENCES ""Semesters"" (""Id"") ON DELETE RESTRICT
+                ""CourseId"" INTEGER NULL,
+                ""SubjectName"" TEXT NULL,
+                CONSTRAINT ""FK_MockInterviewDrives_Semesters_SemesterId"" FOREIGN KEY (""SemesterId"") REFERENCES ""Semesters"" (""Id"") ON DELETE RESTRICT,
+                CONSTRAINT ""FK_MockInterviewDrives_Courses_CourseId"" FOREIGN KEY (""CourseId"") REFERENCES ""Courses"" (""Id"") ON DELETE SET NULL
             );
 
             CREATE TABLE IF NOT EXISTS ""MockInterviewEvaluations"" (
@@ -289,6 +313,8 @@ public static class SeedData
                 ""DriveId"" INTEGER NOT NULL,
                 ""StudentId"" INTEGER NOT NULL,
                 ""InterviewerFacultyId"" INTEGER NULL,
+                ""CourseId"" INTEGER NULL,
+                ""SubjectName"" TEXT NULL,
                 ""StudentGroup"" TEXT NOT NULL,
                 ""ConfidenceScore"" TEXT NULL,
                 ""CommunicationScore"" TEXT NULL,
@@ -300,7 +326,8 @@ public static class SeedData
                 ""InterviewedAt"" TEXT NULL,
                 CONSTRAINT ""FK_MockInterviewEvaluations_MockInterviewDrives_DriveId"" FOREIGN KEY (""DriveId"") REFERENCES ""MockInterviewDrives"" (""Id"") ON DELETE CASCADE,
                 CONSTRAINT ""FK_MockInterviewEvaluations_Students_StudentId"" FOREIGN KEY (""StudentId"") REFERENCES ""Students"" (""Id"") ON DELETE CASCADE,
-                CONSTRAINT ""FK_MockInterviewEvaluations_Faculties_InterviewerFacultyId"" FOREIGN KEY (""InterviewerFacultyId"") REFERENCES ""Faculties"" (""Id"") ON DELETE SET NULL
+                CONSTRAINT ""FK_MockInterviewEvaluations_Faculties_InterviewerFacultyId"" FOREIGN KEY (""InterviewerFacultyId"") REFERENCES ""Faculties"" (""Id"") ON DELETE SET NULL,
+                CONSTRAINT ""FK_MockInterviewEvaluations_Courses_CourseId"" FOREIGN KEY (""CourseId"") REFERENCES ""Courses"" (""Id"") ON DELETE SET NULL
             );
             CREATE UNIQUE INDEX IF NOT EXISTS ""IX_MockInterviewEvaluations_DriveId_StudentId"" ON ""MockInterviewEvaluations"" (""DriveId"", ""StudentId"");
         ");
@@ -347,7 +374,26 @@ public static class SeedData
         await db.SaveChangesAsync();
 
         // 2. Check if drives already seeded
-        if (await db.MockInterviewDrives.AnyAsync()) return;
+        var defaultCourse1 = await db.Courses.FirstOrDefaultAsync(c => c.CourseCode == "CDS40010") ?? await db.Courses.FirstOrDefaultAsync();
+        var defaultCourse2 = await db.Courses.FirstOrDefaultAsync(c => c.CourseCode == "CDS40020") ?? defaultCourse1;
+
+        if (await db.MockInterviewDrives.AnyAsync())
+        {
+            var unassignedDrives = await db.MockInterviewDrives.Where(d => d.CourseId == null).ToListAsync();
+            if (unassignedDrives.Any())
+            {
+                foreach (var d in unassignedDrives)
+                {
+                    var c = (d.Title.Contains("12-09") || d.Title.Contains("SQL") || d.PanelNotes != null && d.PanelNotes.Contains("SQL"))
+                        ? defaultCourse1
+                        : defaultCourse2;
+                    d.CourseId = c?.Id;
+                    d.SubjectName = c != null ? $"{c.CourseCode} — {c.CourseName}" : "Advance Data Centre and Cloud Infrastructure Engineering";
+                }
+                await db.SaveChangesAsync();
+            }
+            return;
+        }
 
         var interviewer = await db.Faculties.FirstOrDefaultAsync(f => f.FullName.Contains("Siddu") || f.Organization == "NIRVAA")
                        ?? await db.Faculties.FirstOrDefaultAsync();
@@ -358,6 +404,8 @@ public static class SeedData
             Title = "Mock Feedback — 12-09-2026",
             DriveDate = new DateTime(2026, 9, 12),
             Status = "Completed",
+            CourseId = defaultCourse1?.Id,
+            SubjectName = defaultCourse1 != null ? $"{defaultCourse1.CourseCode} — {defaultCourse1.CourseName}" : "Advance Data Centre and Cloud Infrastructure Engineering",
             PanelNotes = "Month-end corporate interview drive evaluating Confidence, Communication, and Technical SQL & DC knowledge."
         };
 
@@ -367,6 +415,8 @@ public static class SeedData
             Title = "Mock Feedback — 29-08-2026",
             DriveDate = new DateTime(2026, 8, 29),
             Status = "Completed",
+            CourseId = defaultCourse2?.Id,
+            SubjectName = defaultCourse2 != null ? $"{defaultCourse2.CourseCode} — {defaultCourse2.CourseName}" : "Advanced Cloud Computing & Data Storage System",
             PanelNotes = "Foundational mock interview drive assessing initial candidate preparedness."
         };
 

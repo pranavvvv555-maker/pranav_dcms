@@ -75,15 +75,21 @@
         </MudItem>
     </MudGrid>
 
-    <!-- Drive Tabs Bar (Modern Pill Style with Glowing Selection) -->
+    <!-- Drive Tabs Bar (Modern Pill Style with Glowing Selection & Subject Filter) -->
     <div class="d-flex flex-wrap gap-2 align-center justify-space-between mb-4">
         <div class="d-flex flex-wrap gap-2 align-center">
-            @foreach (var d in _drives)
+            @foreach (var d in FilteredDrives)
             {
                 var isSelected = d.Id == _selectedDriveId;
                 <button type="button" @onclick="@(() => OnDriveChanged(d.Id))"
                         style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.86rem; font-weight: 600; border-radius: 9999px; border: 1px solid @(isSelected ? "#2563eb" : "#e2e8f0"); background: @(isSelected ? "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)" : "#ffffff"); color: @(isSelected ? "#ffffff" : "#475569"); box-shadow: @(isSelected ? "0 4px 14px rgba(37, 99, 235, 0.3)" : "0 1px 3px rgba(0,0,0,0.04)"); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);">
                     <span>📅 @d.Title</span>
+                    @if (d.Course != null || !string.IsNullOrWhiteSpace(d.SubjectName))
+                    {
+                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; background: @(isSelected ? "rgba(255,255,255,0.25)" : "#eff6ff"); color: @(isSelected ? "#ffffff" : "#2563eb"); border: 1px solid @(isSelected ? "rgba(255,255,255,0.4)" : "#bfdbfe");">
+                            📚 @(d.Course?.CourseCode ?? ShortenSubject(d.SubjectName))
+                        </span>
+                    }
                     <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 9999px; font-weight: 700; background: @(isSelected ? "rgba(255,255,255,0.22)" : GetDriveBadgeBackground(d.Status)); color: @(isSelected ? "#ffffff" : GetDriveBadgeColor(d.Status));">
                         @d.Status
                     </span>
@@ -96,52 +102,111 @@
             </button>
         </div>
 
-        <div style="min-width: 260px;">
-            <MudTextField @bind-Value="_searchQuery" Placeholder="Search student name..."
-                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
-                          Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Immediate="true" />
+        <div class="d-flex align-center gap-2 flex-wrap" style="min-width: 320px;">
+            <select value="@(_selectedSubjectFilterCourseId?.ToString() ?? "")"
+                    @onchange="OnSubjectFilterChanged"
+                    style="font-size: 0.82rem; font-weight: 600; padding: 7px 10px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #334155; outline: none; cursor: pointer;">
+                <option value="">Filter: All Subjects</option>
+                @foreach (var c in _courses)
+                {
+                    <option value="@c.Id">@c.CourseCode</option>
+                }
+            </select>
+            <div style="flex: 1; min-width: 180px;">
+                <MudTextField @bind-Value="_searchQuery" Placeholder="Search student name..."
+                              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                              Margin="Margin.Dense" Variant="Variant.Outlined" Clearable="true" Immediate="true" />
+            </div>
         </div>
     </div>
 
     <!-- Active Drive Card & Flexible Reschedule Bar -->
     @if (_activeDrive != null)
     {
-        <div class="pa-4 mb-4 d-flex flex-wrap align-center justify-space-between gap-3"
+        <div class="pa-4 mb-4"
              style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 5px solid @GetDriveStatusBorderColor(_activeDrive.Status); border-radius: 12px; box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04);">
-            <div class="d-flex flex-column gap-1">
-                <div class="d-flex align-center gap-2 flex-wrap">
-                    <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">@_activeDrive.Title</span>
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@GetDriveStatusChipColor(_activeDrive.Status)" Style="font-weight: 700; font-size: 0.72rem;">
-                        @_activeDrive.Status
-                    </MudChip>
-                    <span style="font-size: 0.84rem; font-weight: 600; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 12px; border-radius: 9999px;">
-                        📅 @_activeDrive.DriveDate.ToString("dddd, dd MMMM yyyy")
-                    </span>
-                    @if (GetLeadInterviewerName() is string leadName && !string.IsNullOrWhiteSpace(leadName))
+            <div class="d-flex flex-wrap align-center justify-space-between gap-3 mb-3">
+                <div class="d-flex flex-column gap-1">
+                    <div class="d-flex align-center gap-2 flex-wrap">
+                        <span style="font-size: 1.15rem; font-weight: 800; color: #0f172a; letter-spacing: -0.3px;">@_activeDrive.Title</span>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="@GetDriveStatusChipColor(_activeDrive.Status)" Style="font-weight: 700; font-size: 0.72rem;">
+                            @_activeDrive.Status
+                        </MudChip>
+                        <span style="font-size: 0.84rem; font-weight: 600; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; padding: 3px 12px; border-radius: 9999px;">
+                            📅 @_activeDrive.DriveDate.ToString("dddd, dd MMMM yyyy")
+                        </span>
+                        @if (GetLeadInterviewerName() is string leadName && !string.IsNullOrWhiteSpace(leadName))
+                        {
+                            <span style="font-size: 0.82rem; color: #1e40af; background: #eff6ff; border: 1px solid #dbeafe; padding: 3px 10px; border-radius: 9999px; font-weight: 600;">
+                                👤 Panel: @leadName
+                            </span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_activeDrive.PanelNotes))
                     {
-                        <span style="font-size: 0.82rem; color: #1e40af; background: #eff6ff; border: 1px solid #dbeafe; padding: 3px 10px; border-radius: 9999px; font-weight: 600;">
-                            👤 Panel: @leadName
+                        <div style="font-size: 0.84rem; color: #64748b;" class="d-flex align-center gap-1 mt-1">
+                            <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Style="color: #94a3b8;" />
+                            <span>@_activeDrive.PanelNotes</span>
+                        </div>
+                    }
+                </div>
+
+                <div class="d-flex align-center gap-2">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.EditCalendar"
+                               OnClick="OpenEditDriveDialog"
+                               Style="font-weight: 600; border-radius: 8px;">
+                        Reschedule / Edit Drive
+                    </MudButton>
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small"
+                                   OnClick="OpenDeleteDriveDialog" />
+                </div>
+            </div>
+
+            <!-- Prominent Subject / Course Selection Bar for Marks Entry -->
+            <div class="pa-3 d-flex flex-wrap align-center justify-space-between gap-3"
+                 style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px;">
+                <div class="d-flex align-center gap-3 flex-wrap">
+                    <div class="d-flex align-center gap-2">
+                        <span style="background: #15803d; color: #ffffff; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 800; display: inline-flex; align-items: center; gap: 4px;">
+                            <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" />
+                            <span>SUBJECT FOR MARKS</span>
+                        </span>
+                        <span style="font-size: 0.88rem; font-weight: 700; color: #14532d;">Select Subject:</span>
+                    </div>
+                    <select value="@(_activeDrive.CourseId?.ToString() ?? "")"
+                            @onchange="OnActiveDriveSubjectSelectChanged"
+                            style="font-size: 0.88rem; font-weight: 700; padding: 6px 14px; border: 1.5px solid #16a34a; border-radius: 8px; background: #ffffff; color: #14532d; outline: none; cursor: pointer; box-shadow: 0 1px 3px rgba(22, 163, 74, 0.15); min-width: 340px;">
+                        <option value="">-- Choose Subject / Course --</option>
+                        @foreach (var c in _courses)
+                        {
+                            <option value="@c.Id">@c.CourseCode — @c.CourseName</option>
+                        }
+                    </select>
+
+                    @if (_activeDrive.Course != null || !string.IsNullOrWhiteSpace(_activeDrive.SubjectName))
+                    {
+                        <span style="font-size: 0.82rem; font-weight: 700; padding: 3px 12px; border-radius: 9999px; background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; gap: 4px;">
+                            <span>✔</span>
+                            <span>Currently Grading: <strong>@GetActiveDriveSubjectDisplayName()</strong></span>
+                        </span>
+                    }
+                    else
+                    {
+                        <span style="font-size: 0.8rem; font-weight: 700; padding: 3px 10px; border-radius: 9999px; background: #fffbeb; color: #92400e; border: 1px solid #fde68a;">
+                            ⚠️ Select subject from dropdown above to assign marks to this subject
                         </span>
                     }
                 </div>
-                @if (!string.IsNullOrWhiteSpace(_activeDrive.PanelNotes))
-                {
-                    <div style="font-size: 0.84rem; color: #64748b;" class="d-flex align-center gap-1 mt-1">
-                        <MudIcon Icon="@Icons.Material.Filled.Notes" Size="Size.Small" Style="color: #94a3b8;" />
-                        <span>@_activeDrive.PanelNotes</span>
-                    </div>
-                }
-            </div>
 
-            <div class="d-flex align-center gap-2">
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                           StartIcon="@Icons.Material.Filled.EditCalendar"
-                           OnClick="OpenEditDriveDialog"
-                           Style="font-weight: 600; border-radius: 8px;">
-                    Reschedule / Edit Date
-                </MudButton>
-                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Color="Color.Error" Size="Size.Small"
-                               OnClick="OpenDeleteDriveDialog" />
+                <div class="d-flex align-center gap-2">
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" Style="font-size: 0.72rem; font-weight: 700;">
+                        @(string.IsNullOrWhiteSpace(_activeDrive.Course?.AssessmentScheme) ? "10-Pt Factor Scale" : $"Scheme: {_activeDrive.Course.AssessmentScheme}")
+                    </MudChip>
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" Style="font-size: 0.72rem; font-weight: 700;">
+                        3 Factors: Conf / Comm / Tech
+                    </MudChip>
+                </div>
             </div>
         </div>
     }
@@ -252,12 +317,17 @@
                             <!-- Modern Group Ribbon -->
                             <tr style="background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%); border-top: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe; border-left: 4px solid #2563eb;">
                                 <td colspan="8" style="padding: 10px 16px; font-weight: 800; font-size: 0.92rem; color: #1e40af; text-align: left; letter-spacing: 0.02em;">
-                                    <div class="d-flex justify-space-between align-center">
+                                    <div class="d-flex justify-space-between align-center flex-wrap gap-2">
                                         <div class="d-flex align-center gap-2">
                                             <span style="background: #2563eb; color: #ffffff; padding: 2px 10px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700;">@groupName</span>
                                             <span style="color: #3b82f6; font-weight: 600; font-size: 0.84rem;">@groupItems.Count student(s) allocated</span>
                                         </div>
-                                        <small style="font-weight: 600; color: #64748b; font-size: 0.78rem;">M.Tech Data Centre Technology</small>
+                                        <div class="d-flex align-center gap-2">
+                                            <span style="font-weight: 700; color: #1e40af; font-size: 0.8rem; background: #ffffff; padding: 2px 10px; border-radius: 9999px; border: 1px solid #bfdbfe;">
+                                                📚 Marks for: @GetActiveDriveSubjectDisplayName()
+                                            </span>
+                                            <small style="font-weight: 600; color: #64748b; font-size: 0.78rem;">M.Tech Data Centre Technology</small>
+                                        </div>
                                     </div>
                                 </td>
                             </tr>
@@ -428,7 +498,18 @@
         </div>
 
         <MudDatePicker @bind-Date="_newDriveDate" Label="Drive Date (Flexible)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
-        <MudTextField @bind-Value="_newDriveTitle" Label="Drive Title" Placeholder="e.g. Mock Feedback — Month End September 2026" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
+
+        <MudSelect T="int?" @bind-Value="_newDriveCourseId" Label="Subject / Course (Marks will be evaluated for this subject)"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
+                   SelectedValuesChanged="OnNewDriveCourseChanged">
+            <MudSelectItem Value="@((int?)null)">-- Select Subject / Course --</MudSelectItem>
+            @foreach (var c in _courses)
+            {
+                <MudSelectItem Value="@((int?)c.Id)">@c.CourseCode — @c.CourseName</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudTextField @bind-Value="_newDriveTitle" Label="Drive Title" Placeholder="e.g. Mock Feedback — CDS40010 (Month End September 2026)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
 
         <div class="d-flex gap-3 mb-3">
             <MudSelect T="string" @bind-Value="_newDriveStatus" Label="Drive Status" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex: 1;">
@@ -488,6 +569,16 @@
         </div>
 
         <MudDatePicker @bind-Date="_editingDriveDate" Label="Drive Date (Flexible)" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" />
+
+        <MudSelect T="int?" @bind-Value="_editingDriveCourseId" Label="Subject / Course"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
+            <MudSelectItem Value="@((int?)null)">-- No Specific Subject --</MudSelectItem>
+            @foreach (var c in _courses)
+            {
+                <MudSelectItem Value="@((int?)c.Id)">@c.CourseCode — @c.CourseName</MudSelectItem>
+            }
+        </MudSelect>
+
         <MudTextField @bind-Value="_editingDriveTitle" Label="Drive Title" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3" Required="true" />
 
         <div class="d-flex gap-3 mb-3">
@@ -539,10 +630,12 @@
     private List<MockInterviewEvaluation> _evaluations = new();
     private MockInterviewReadinessStats _stats = new();
     private List<Faculty> _faculties = new();
+    private List<Course> _courses = new();
 
     private int _selectedDriveId;
     private string _searchQuery = "";
     private HashSet<int> _modifiedEvaluationIds = new();
+    private int? _selectedSubjectFilterCourseId;
 
     private bool _addStudentVisible;
     private int _newStudentId;
@@ -554,6 +647,7 @@
     private DateTime? _newDriveDate = GetLastSaturday(DateTime.Today);
     private string _newDriveStatus = "Scheduled";
     private int? _newDriveLeadInterviewerId;
+    private int? _newDriveCourseId;
     private string? _newDriveNotes;
 
     private bool _editDriveVisible;
@@ -561,6 +655,7 @@
     private DateTime? _editingDriveDate;
     private string _editingDriveStatus = "Scheduled";
     private int? _editingDriveLeadInterviewerId;
+    private int? _editingDriveCourseId;
     private string? _editingDriveNotes;
 
     private bool _deleteDriveVisible;
@@ -568,9 +663,37 @@
     private DialogOptions _smallDialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true };
     private DialogOptions _mediumDialogOptions = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true };
 
+    private IEnumerable<MockInterviewDrive> FilteredDrives
+    {
+        get
+        {
+            if (_selectedSubjectFilterCourseId.HasValue && _selectedSubjectFilterCourseId.Value > 0)
+            {
+                return _drives.Where(d => d.CourseId == _selectedSubjectFilterCourseId.Value);
+            }
+            return _drives;
+        }
+    }
+
+    private async Task OnSubjectFilterChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        _selectedSubjectFilterCourseId = int.TryParse(raw, out var id) && id > 0 ? id : null;
+
+        if (FilteredDrives.Any())
+        {
+            if (!FilteredDrives.Any(d => d.Id == _selectedDriveId))
+            {
+                _selectedDriveId = FilteredDrives.First().Id;
+                await LoadActiveDrive();
+            }
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _faculties = await FacultySvc.GetAllAsync();
+        _courses = await CourseSvc.GetAllAsync();
         await LoadDrives();
     }
 
@@ -846,11 +969,28 @@
     {
         var defaultDate = GetLastSaturday(DateTime.Today);
         _newDriveDate = defaultDate;
-        _newDriveTitle = $"Mock Feedback — {defaultDate:dd-MM-yyyy}";
+        _newDriveCourseId = _selectedSubjectFilterCourseId ?? _courses.FirstOrDefault(c => c.CourseCode == "CDS40010")?.Id ?? _courses.FirstOrDefault()?.Id;
+        var course = _newDriveCourseId.HasValue ? _courses.FirstOrDefault(c => c.Id == _newDriveCourseId.Value) : null;
+        var subjectCode = course?.CourseCode ?? "Month End";
+        _newDriveTitle = $"Mock Feedback — {subjectCode} ({defaultDate:dd-MM-yyyy})";
         _newDriveStatus = defaultDate > DateTime.Today ? "Scheduled" : "Completed";
         _newDriveLeadInterviewerId = _faculties.FirstOrDefault(f => f.FullName.Contains("Siddu") || f.Organization == "NIRVAA")?.Id;
-        _newDriveNotes = $"Month-end corporate interview drive for {defaultDate:MMMM yyyy}. Evaluating Confidence, Communication, and Technical SQL & DC skills.";
+        _newDriveNotes = $"Month-end corporate interview drive for {defaultDate:MMMM yyyy}. Evaluating Confidence, Communication, and Technical skills for {course?.CourseName ?? "Data Centre systems"}.";
         _createDriveVisible = true;
+    }
+
+    private void OnNewDriveCourseChanged()
+    {
+        if (_newDriveCourseId.HasValue)
+        {
+            var course = _courses.FirstOrDefault(c => c.Id == _newDriveCourseId.Value);
+            if (course != null && (string.IsNullOrWhiteSpace(_newDriveTitle) || _newDriveTitle.StartsWith("Mock Feedback")))
+            {
+                var dt = _newDriveDate ?? DateTime.Today;
+                _newDriveTitle = $"Mock Feedback — {course.CourseCode} ({dt:dd-MM-yyyy})";
+                _newDriveNotes = $"Month-end corporate interview drive evaluating {course.CourseName} ({course.CourseCode}) fundamentals, theory, and practical skills.";
+            }
+        }
     }
 
     private async Task SaveNewDrive()
@@ -864,9 +1004,12 @@
         var semester = await CourseSvc.GetActiveSemesterAsync() ?? (await CourseSvc.GetSemestersAsync()).FirstOrDefault();
         if (semester == null) return;
 
+        var course = _newDriveCourseId.HasValue ? _courses.FirstOrDefault(c => c.Id == _newDriveCourseId.Value) : null;
         var drive = new MockInterviewDrive
         {
             SemesterId = semester.Id,
+            CourseId = _newDriveCourseId,
+            SubjectName = course != null ? $"{course.CourseCode} — {course.CourseName}" : null,
             Title = _newDriveTitle.Trim(),
             DriveDate = _newDriveDate ?? DateTime.Today,
             Status = _newDriveStatus,
@@ -878,7 +1021,7 @@
             var created = await InterviewSvc.CreateDriveAsync(drive, _newDriveLeadInterviewerId);
             _createDriveVisible = false;
             _selectedDriveId = created.Id;
-            Snackbar.Add("Mock feedback drive scheduled successfully.", Severity.Success);
+            Snackbar.Add($"Mock drive scheduled for subject: {drive.SubjectName ?? drive.Title}", Severity.Success);
             await LoadDrives();
         }
         catch (Exception ex)
@@ -895,6 +1038,7 @@
         _editingDriveDate = _activeDrive.DriveDate;
         _editingDriveStatus = _activeDrive.Status;
         _editingDriveNotes = _activeDrive.PanelNotes;
+        _editingDriveCourseId = _activeDrive.CourseId;
         _editingDriveLeadInterviewerId = _evaluations.FirstOrDefault(e => e.InterviewerFacultyId.HasValue)?.InterviewerFacultyId;
 
         _editDriveVisible = true;
@@ -909,6 +1053,10 @@
             return;
         }
 
+        var course = _editingDriveCourseId.HasValue ? _courses.FirstOrDefault(c => c.Id == _editingDriveCourseId.Value) : null;
+        _activeDrive.CourseId = _editingDriveCourseId;
+        _activeDrive.SubjectName = course != null ? $"{course.CourseCode} — {course.CourseName}" : null;
+        _activeDrive.Course = course;
         _activeDrive.Title = _editingDriveTitle.Trim();
         _activeDrive.DriveDate = _editingDriveDate ?? _activeDrive.DriveDate;
         _activeDrive.Status = _editingDriveStatus;
@@ -918,13 +1066,65 @@
         {
             await InterviewSvc.UpdateDriveAsync(_activeDrive, _editingDriveLeadInterviewerId);
             _editDriveVisible = false;
-            Snackbar.Add("Drive details and schedule updated.", Severity.Success);
+            Snackbar.Add("Drive details and subject updated.", Severity.Success);
             await LoadDrives();
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error: {ex.Message}", Severity.Error);
         }
+    }
+
+    private async Task OnActiveDriveSubjectSelectChanged(ChangeEventArgs e)
+    {
+        if (_activeDrive == null) return;
+        var raw = e.Value?.ToString();
+        int? newCourseId = int.TryParse(raw, out var id) && id > 0 ? id : null;
+        var course = newCourseId.HasValue ? _courses.FirstOrDefault(c => c.Id == newCourseId.Value) : null;
+        var subjectName = course != null ? $"{course.CourseCode} — {course.CourseName}" : null;
+
+        try
+        {
+            await InterviewSvc.UpdateDriveSubjectAsync(_activeDrive.Id, newCourseId, subjectName);
+            _activeDrive.CourseId = newCourseId;
+            _activeDrive.SubjectName = subjectName;
+            _activeDrive.Course = course;
+
+            var driveInList = _drives.FirstOrDefault(d => d.Id == _activeDrive.Id);
+            if (driveInList != null)
+            {
+                driveInList.CourseId = newCourseId;
+                driveInList.SubjectName = subjectName;
+                driveInList.Course = course;
+            }
+
+            Snackbar.Add(course != null 
+                ? $"Marks entry subject set to: {course.CourseCode} — {course.CourseName}" 
+                : "Subject unassigned.", Severity.Success);
+            await LoadActiveDrive();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error updating subject: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private string GetActiveDriveSubjectDisplayName()
+    {
+        if (_activeDrive?.Course != null)
+            return $"{_activeDrive.Course.CourseCode} — {_activeDrive.Course.CourseName}";
+        if (!string.IsNullOrWhiteSpace(_activeDrive?.SubjectName))
+            return _activeDrive.SubjectName;
+        return "General Mock Evaluation (All Subjects)";
+    }
+
+    private static string ShortenSubject(string? subject)
+    {
+        if (string.IsNullOrWhiteSpace(subject)) return "";
+        var parts = subject.Split(new[] { '—', '-' }, StringSplitOptions.TrimEntries);
+        if (parts.Length > 0 && parts[0].Length <= 12)
+            return parts[0];
+        return subject.Length > 15 ? subject.Substring(0, 15) + "..." : subject;
     }
 
     private void OpenDeleteDriveDialog()
@@ -996,11 +1196,16 @@
         }
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("Sr,STUDENT NAME,Confidence,Communication,Technical,Marks out of 10,Feedback");
+        sb.AppendLine($"# MOCK INTERVIEW MARKS RECORD: {_activeDrive?.Title}");
+        sb.AppendLine($"# SUBJECT: {GetActiveDriveSubjectDisplayName()}");
+        sb.AppendLine($"# DATE: {_activeDrive?.DriveDate:dd MMMM yyyy} | STATUS: {_activeDrive?.Status}");
+        sb.AppendLine("Sr,STUDENT NAME,ROLL NO,SUBJECT,Confidence (0-10),Communication (0-10),Technical (0-10),Marks / 10,Evaluator Feedback & Notes");
+
+        var currentSubject = GetActiveDriveSubjectDisplayName();
 
         foreach (var group in DistinctGroups)
         {
-            sb.AppendLine($",,,{group},,,");
+            sb.AppendLine($",,,{group},,,,");
             int sr = 1;
             foreach (var e in GetGroupEvaluations(group))
             {
@@ -1009,16 +1214,18 @@
                 var tech = e.IsAbsent ? "" : (e.TechnicalScore?.ToString("0.#") ?? "");
                 var marks = e.IsAbsent ? "absent" : (e.MarksOutOf10?.ToString("0.#") ?? "");
                 var cleanFeedback = (e.Feedback ?? "").Replace("\"", "\"\"");
+                var roll = e.Student?.StudentCode ?? "";
 
-                sb.AppendLine($"{sr++},\"{e.Student?.FullName}\",{conf},{comm},{tech},{marks},\"{cleanFeedback}\"");
+                sb.AppendLine($"{sr++},\"{e.Student?.FullName}\",\"{roll}\",\"{currentSubject}\",{conf},{comm},{tech},{marks},\"{cleanFeedback}\"");
             }
         }
 
         var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
         var base64 = Convert.ToBase64String(bytes);
-        var fileName = $"{(_activeDrive?.Title ?? "MockFeedback").Replace(" ", "_")}.csv";
+        var subjectCodeSafe = _activeDrive?.Course?.CourseCode ?? "MockFeedback";
+        var fileName = $"{(_activeDrive?.Title ?? "MockFeedback").Replace(" ", "_")}_{subjectCodeSafe}.csv";
 
         await JS.InvokeVoidAsync("downloadFileFromBase64", fileName, "text/csv;charset=utf-8", base64);
-        Snackbar.Add("Mock Feedback sheet downloaded.", Severity.Success);
+        Snackbar.Add("Mock Feedback sheet downloaded with subject details.", Severity.Success);
     }
 }

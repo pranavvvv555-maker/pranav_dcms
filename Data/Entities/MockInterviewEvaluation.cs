@@ -25,8 +25,13 @@ public class MockInterviewEvaluation
     public string Status { get; set; } = "Completed"; // Scheduled, Completed, Absent
     public DateTime? InterviewedAt { get; set; } = DateTime.UtcNow;
 
+    // Subject / Course linkage
+    public int? CourseId { get; set; }
+    public string? SubjectName { get; set; }
+
     // Navigation
     public MockInterviewDrive Drive { get; set; } = null!;
     public Student Student { get; set; } = null!;
     public Faculty? Interviewer { get; set; }
+    public Course? Course { get; set; }
 }

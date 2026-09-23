@@ -211,9 +211,14 @@ public class AppDbContext : DbContext
         {
             e.Property(d => d.Title).HasMaxLength(200).IsRequired();
             e.Property(d => d.Status).HasMaxLength(50).IsRequired();
+            e.Property(d => d.SubjectName).HasMaxLength(200);
             e.HasOne(d => d.Semester)
              .WithMany()
              .HasForeignKey(d => d.SemesterId);
+            e.HasOne(d => d.Course)
+             .WithMany()
+             .HasForeignKey(d => d.CourseId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         // MockInterviewEvaluation
@@ -226,6 +231,7 @@ public class AppDbContext : DbContext
             e.Property(m => m.MarksOutOf10).HasPrecision(4, 2);
             e.Property(m => m.StudentGroup).HasMaxLength(50).IsRequired();
             e.Property(m => m.Status).HasMaxLength(50).IsRequired();
+            e.Property(m => m.SubjectName).HasMaxLength(200);
             e.HasOne(m => m.Drive)
              .WithMany(d => d.Evaluations)
              .HasForeignKey(m => m.DriveId)
@@ -237,6 +243,10 @@ public class AppDbContext : DbContext
             e.HasOne(m => m.Interviewer)
              .WithMany()
              .HasForeignKey(m => m.InterviewerFacultyId)
+             .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(m => m.Course)
+             .WithMany()
+             .HasForeignKey(m => m.CourseId)
              .OnDelete(DeleteBehavior.SetNull);
         });
     }

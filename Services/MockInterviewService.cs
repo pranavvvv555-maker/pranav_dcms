@@ -13,16 +13,20 @@ public class MockInterviewService
         _db = db;
     }
 
-    public async Task<List<MockInterviewDrive>> GetDrivesAsync(int? semesterId = null)
+    public async Task<List<MockInterviewDrive>> GetDrivesAsync(int? semesterId = null, int? courseId = null)
     {
         var query = _db.MockInterviewDrives
             .Include(d => d.Semester)
+            .Include(d => d.Course)
             .Include(d => d.Evaluations)
                 .ThenInclude(e => e.Interviewer)
             .AsQueryable();
 
         if (semesterId.HasValue && semesterId.Value > 0)
             query = query.Where(d => d.SemesterId == semesterId.Value);
+
+        if (courseId.HasValue && courseId.Value > 0)
+            query = query.Where(d => d.CourseId == courseId.Value);
 
         return await query.OrderByDescending(d => d.DriveDate).ToListAsync();
     }
@@ -31,10 +35,13 @@ public class MockInterviewService
     {
         var drive = await _db.MockInterviewDrives
             .Include(d => d.Semester)
+            .Include(d => d.Course)
             .Include(d => d.Evaluations)
                 .ThenInclude(e => e.Student)
             .Include(d => d.Evaluations)
                 .ThenInclude(e => e.Interviewer)
+            .Include(d => d.Evaluations)
+                .ThenInclude(e => e.Course)
             .FirstOrDefaultAsync(d => d.Id == driveId);
 
         if (drive == null) return null;
@@ -57,6 +64,8 @@ public class MockInterviewService
                     DriveId = drive.Id,
                     StudentId = student.Id,
                     Student = student,
+                    CourseId = drive.CourseId,
+                    SubjectName = drive.SubjectName,
                     StudentGroup = i < (students.Count / 2) ? "Group A" : "Group B",
                     Status = "Scheduled",
                     IsAbsent = false
@@ -112,6 +121,8 @@ public class MockInterviewService
             {
                 DriveId = drive.Id,
                 StudentId = student.Id,
+                CourseId = drive.CourseId,
+                SubjectName = drive.SubjectName,
                 InterviewerFacultyId = leadInterviewerId,
                 StudentGroup = group,
                 Status = drive.Status == "Completed" ? "Completed" : "Scheduled",
@@ -134,6 +145,14 @@ public class MockInterviewService
         existing.DriveDate = drive.DriveDate;
         existing.Status = drive.Status;
         existing.PanelNotes = drive.PanelNotes?.Trim();
+        existing.CourseId = drive.CourseId;
+        existing.SubjectName = drive.SubjectName?.Trim();
+
+        foreach (var eval in existing.Evaluations)
+        {
+            eval.CourseId = drive.CourseId;
+            eval.SubjectName = drive.SubjectName?.Trim();
+        }
 
         if (leadInterviewerId.HasValue && leadInterviewerId.Value > 0)
         {
@@ -141,6 +160,40 @@ public class MockInterviewService
             {
                 eval.InterviewerFacultyId = leadInterviewerId.Value;
             }
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task UpdateDriveSubjectAsync(int driveId, int? courseId, string? subjectName = null)
+    {
+        var existing = await _db.MockInterviewDrives
+            .Include(d => d.Evaluations)
+            .FirstOrDefaultAsync(d => d.Id == driveId);
+        if (existing == null) return;
+
+        existing.CourseId = courseId;
+        if (!string.IsNullOrWhiteSpace(subjectName))
+        {
+            existing.SubjectName = subjectName.Trim();
+        }
+        else if (courseId.HasValue && courseId.Value > 0)
+        {
+            var course = await _db.Courses.FindAsync(courseId.Value);
+            if (course != null)
+            {
+                existing.SubjectName = $"{course.CourseCode} — {course.CourseName}";
+            }
+        }
+        else
+        {
+            existing.SubjectName = null;
+        }
+
+        foreach (var eval in existing.Evaluations)
+        {
+            eval.CourseId = existing.CourseId;
+            eval.SubjectName = existing.SubjectName;
         }
 
         await _db.SaveChangesAsync();
@@ -252,11 +305,14 @@ public class MockInterviewService
         var student = await _db.Students.FindAsync(studentId);
         if (student == null) throw new InvalidOperationException("Student not found");
 
+        var drive = await _db.MockInterviewDrives.FindAsync(driveId);
         var evaluation = new MockInterviewEvaluation
         {
             DriveId = driveId,
             StudentId = studentId,
             Student = student,
+            CourseId = drive?.CourseId,
+            SubjectName = drive?.SubjectName,
             StudentGroup = groupName,
             Status = "Scheduled",
             IsAbsent = false
