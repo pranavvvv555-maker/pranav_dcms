@@ -335,40 +335,62 @@ public static class SeedData
         var sem = await db.Semesters.FirstOrDefaultAsync(s => s.IsActive) ?? await db.Semesters.FirstOrDefaultAsync();
         if (sem == null) return;
 
-        // Ensure authentic students from mock feedback sheet exist in db
-        var mockSheetData = new (string group, string name, decimal? conf, decimal? comm, decimal? tech, decimal? marks, bool absent, string feedback)[]
+        // Ensure authentic 29 students from mock feedback sheet exist in db
+        var mockSheetData = new (string group, string roll, string name, decimal? conf, decimal? comm, decimal? tech, decimal? marks, bool absent, string feedback)[]
         {
-            ("Group A", "Omprakash Todgire", 9m, 8m, 8m, 8m, false, "Theoretical knowledge is good. Out of 4 SQL queries, 2 are correct, while the other 2 are partially correct and partially incorrect. Needs to strengthen complex joins."),
-            ("Group A", "Ajay Deshmukh", 6m, 5m, 5m, 5.5m, false, "Needs to work on communication skills. Out of 4 SQL queries, 2 were correct and 2 were partially correct. Needs to strengthen theoretical fundamentals."),
-            ("Group A", "Vivek", 3m, 3m, 2m, 3m, false, "Not prepared for the mock interview and needs to take it more seriously. Unable to answer basic theoretical questions and write proper syntax."),
-            ("Group A", "Abhay Deshmukh", 6m, 5m, 4m, 4m, false, "Not prepared for the mock interview. It seemed like someone was helping with the answers during the mock. 2 queries were correct, but lacks clarity."),
-            ("Group A", "Ayesha", 10m, 10m, 10m, 10m, false, "Overall mock interview was outstanding. Great explanation and good communication. All 5 SQL queries were answered correctly."),
-            ("Group A", "Varsha", 9m, 9m, 9m, 9m, false, "Theoretical concepts are clear, and the explanations are good. Good at writing SQL queries. Out of 7–8 queries, most were answered correctly."),
-
-            ("Group B", "Akash", 9m, 8m, 8m, 8.5m, false, "must work on stammering , and 2 queries were answered correctly and 1 query was partially correct"),
-            ("Group B", "Dhanashri Patil", null, null, null, null, true, "absent"),
-            ("Group B", "Gayatri Patil", 8m, 7m, 6m, 6m, false, "Needs to work on practical questions , and also on voice modulation and stammering, 3 queries were wrong and 2 were partially correct"),
-            ("Group B", "Sanjana Gidwani", 10m, 10m, 10m, 10m, false, "Excellent mock , and theory questions were almost all correctly answered , if she practice more difficult theory questions she will be on top."),
-            ("Group B", "Smitali", 8m, 8m, 8.5m, 8.5m, false, "Theoretical concepts are clear, and the explanations are good. Out of 5–6 SQL queries, the answers were given correctly, but some were partially correct.")
+            ("Batch A", "1272261957", "Rajebhosale Poonam Shivaji", 10m, 10m, 10m, 10m, false, "Excellent confidence and communication. Well-prepared presentation; answered 2 out of 3 questions correctly."),
+            ("Batch A", "1272261958", "S Monish Kumar", 9m, 9m, 9m, 9m, false, "Good overall understanding and steady presentation. Can improve communication fluency and expand on technical explanations."),
+            ("Batch A", "1272261959", "Deore Asmita Shashikant", 9m, 9m, 8m, 9m, false, "Good confidence and communication, but tended to read directly from PPT slides. Answered 1 out of 3 questions; needs deeper conceptual grounding."),
+            ("Batch A", "1272261987", "Wankhede Shrey", 8m, 8m, 8m, 8m, false, "PPT presentation is fine but needs better structure. Communication skills can be improved; answered 1 out of 2 questions."),
+            ("Batch A", "1272262017", "Mankar Mayuresh Dnyaneshwar", 9m, 9m, 9m, 9m, false, "Good communication and clear, concise explanation. Answered all 2 questions well; PPT is fine but would benefit from more visual elements."),
+            ("Batch A", "1272262022", "Pisal Piyush Satish", null, null, null, null, true, "Absent for interview."),
+            ("Batch A", "1272262067", "Manore Aditya Jayprakash", 9m, 9m, 9m, 9m, false, "Demonstrated good technical clarity and steady confidence. Recommended to speak more elaborately and engage more proactively during Q&A."),
+            ("Batch A", "1272262069", "Chaudhari Kashish Kailash", 8m, 8m, 8m, 8m, false, "Decent effort. Needs to work on communication skills, build self-confidence, and strengthen core technical concepts."),
+            ("Batch A", "1272262079", "Tambe Abhinay Balasaheb", 9m, 9m, 9m, 9m, false, "Solid presentation skills and good domain comprehension. Can further refine slide design and articulate complex scenarios more clearly."),
+            ("Batch A", "1272262082", "Nikam Divya Dipak", 9m, 9m, 9m, 9m, false, "Creative and well-structured PPT with good communication and practical examples. Answered 2 out of 3 questions clearly."),
+            ("Batch A", "1272262093", "Dhawalekar Vaishnavi Sachchidanand", 9m, 9m, 9m, 9m, false, "Well-organized presentation with clear delivery. Good potential; continue improving spontaneous technical answering."),
+            ("Batch A", "1272262140", "Lature Tejas Rajshekhar", 8m, 8m, 9m, 8m, false, "Strong technical knowledge (scored 9). Communication in English needs improvement. Faced audio connectivity issues during the session."),
+            ("Batch A", "1272262167", "Bhagwat Yogendra Dada", 8m, 8m, 8m, 8m, false, "Satisfactory presentation. Needs to improve communication skills, be more interactive, and deepen fundamental knowledge."),
+            ("Batch A", "1272262189", "Patil Akshay Vinod", 8m, 8m, 8m, 8m, false, "Good effort overall. Can improve confidence and presentation flow; needs to elaborate more on technical explanations."),
+            ("Batch B", "1272262214", "Kolhe Sanket Suresh", 8m, 8m, 10m, 9m, false, "Answered 2 out of 2 questions accurately with strong technical depth (10/10). Maintained good confidence and communication."),
+            ("Batch B", "1272262220", "Varsale Saurabh", 8m, 8m, 8m, 8m, false, "Acceptable performance. Needs to work on presentation pacing, confidence, and active communication skills."),
+            ("Batch B", "1272262241", "Patrike Harshada Siddheshwar", 8m, 8m, 8m, 8m, false, "Prepared two different PPTs; presentation was basic. Answered 1 out of 2 questions. Communication skills can be improved."),
+            ("Batch B", "1272262250", "Khomane Aditya Navnath", 8m, 8m, 8m, 8m, false, "Satisfactory overall performance. Recommended to enhance communication skills and provide more detailed technical answers."),
+            ("Batch B", "1272262323", "Wankhede Unmesh", 8m, 8m, 8m, 8m, false, "Attended limited classes so has foundational knowledge. Answered both questions; needs to improve visual presentation and explanations."),
+            ("Batch B", "1272262381", "Harpale Prathamesh Vikas", 8m, 8m, 8m, 8m, false, "Good explanation and decent AI-assisted PPT. Answered 1 out of 3 questions; should deepen core technical understanding."),
+            ("Batch B", "1272262382", "Bhagwat Kshitija Santosh", 10m, 10m, 10m, 10m, false, "Well-prepared with good communication and high confidence. Answered all questions thoroughly and accurately."),
+            ("Batch B", "1272262414", "Sonone Ayush Sanjay", 8m, 8m, 8m, 8m, false, "Answered all questions asked. Basic PPT and needs to build more confidence and explanation skills."),
+            ("Batch B", "1272262423", "Bhosale Shubham M.", 8m, 8m, 8m, 8m, false, "Answered all questions. PPT was basic and tended to read slides rather than explaining intuitively; needs to improve verbal explanation."),
+            ("Batch B", "1272262425", "Nakade Kartik Vilas", 8m, 8m, 8m, 8m, false, "Good initial confidence and communication. Gave wrong answer on technical question; needs to strengthen fundamentals."),
+            ("Batch B", "1272262455", "Gaikwad Shradesh S.", 8m, 8m, 8m, 8m, false, "Good PPT presentation and moderate confidence. Answered all questions; explanation skills can be developed further."),
+            ("Batch B", "1272262470", "Patil Sahil", 8m, 8m, 9m, 9m, false, "Good PPT and fine explanation. Successfully answered 2 out of 2 questions."),
+            ("Batch B", "1272262481", "Sailee Thakkar", 9m, 8m, 9m, 9m, false, "Strong confidence and technical clarity. Communication is good and can be refined further."),
+            ("Batch B", "1272262533", "Waghmare Akshay S.", null, null, null, null, true, "Absent for interview."),
+            ("Batch B", "1272262550", "Prakash Palaniappan", 10m, 10m, 10m, 10m, false, "Outstanding confidence, communication, and technical acumen. Left 1 question unanswered, overall exceptional performance.")
         };
 
         // Match or create students
         var existingStudents = await db.Students.Where(s => s.SemesterId == sem.Id).ToListAsync();
-        int nextRollNum = 1272262301;
 
         foreach (var item in mockSheetData)
         {
-            if (!existingStudents.Any(s => s.FullName.Equals(item.name, StringComparison.OrdinalIgnoreCase)))
+            var match = existingStudents.FirstOrDefault(s => s.StudentCode == item.roll || s.FullName.Equals(item.name, StringComparison.OrdinalIgnoreCase));
+            if (match == null)
             {
                 var newStudent = new Student
                 {
                     FullName = item.name,
-                    StudentCode = (nextRollNum++).ToString(),
+                    StudentCode = item.roll,
                     SemesterId = sem.Id,
-                    EnrollmentStatus = "Active"
+                    EnrollmentStatus = "Enrolled"
                 };
                 db.Students.Add(newStudent);
                 existingStudents.Add(newStudent);
+            }
+            else
+            {
+                match.StudentCode = item.roll;
+                match.FullName = item.name;
             }
         }
         await db.SaveChangesAsync();
