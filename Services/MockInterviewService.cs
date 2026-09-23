@@ -66,7 +66,7 @@ public class MockInterviewService
                     Student = student,
                     CourseId = drive.CourseId,
                     SubjectName = drive.SubjectName,
-                    StudentGroup = i < (students.Count / 2) ? "Group A" : "Group B",
+                    StudentGroup = "",
                     Status = "Scheduled",
                     IsAbsent = false
                 };
@@ -82,7 +82,7 @@ public class MockInterviewService
         }
 
         drive.Evaluations = drive.Evaluations
-            .OrderBy(e => e.StudentGroup)
+            .OrderBy(e => e.Student?.StudentCode ?? "")
             .ThenBy(e => e.Student?.FullName ?? "")
             .ToList();
 
@@ -99,24 +99,9 @@ public class MockInterviewService
             .OrderBy(s => s.StudentCode)
             .ToListAsync();
 
-        // Check previous drives to inherit established student group assignments
-        var previousEvaluations = await _db.MockInterviewEvaluations
-            .Include(e => e.Drive)
-            .Where(e => e.Drive.SemesterId == drive.SemesterId && e.DriveId != drive.Id)
-            .OrderByDescending(e => e.Drive.DriveDate)
-            .ToListAsync();
-
-        var studentGroupMap = previousEvaluations
-            .GroupBy(e => e.StudentId)
-            .ToDictionary(g => g.Key, g => g.First().StudentGroup);
-
         for (int i = 0; i < students.Count; i++)
         {
             var student = students[i];
-            string group = studentGroupMap.TryGetValue(student.Id, out var prevGroup) && !string.IsNullOrWhiteSpace(prevGroup)
-                ? prevGroup
-                : (i < (students.Count / 2) ? "Group A" : "Group B");
-
             _db.MockInterviewEvaluations.Add(new MockInterviewEvaluation
             {
                 DriveId = drive.Id,
@@ -124,7 +109,7 @@ public class MockInterviewService
                 CourseId = drive.CourseId,
                 SubjectName = drive.SubjectName,
                 InterviewerFacultyId = leadInterviewerId,
-                StudentGroup = group,
+                StudentGroup = "",
                 Status = drive.Status == "Completed" ? "Completed" : "Scheduled",
                 IsAbsent = false
             });
@@ -300,7 +285,7 @@ public class MockInterviewService
             .ToListAsync();
     }
 
-    public async Task<MockInterviewEvaluation> AddStudentToDriveAsync(int driveId, int studentId, string groupName = "Group A")
+    public async Task<MockInterviewEvaluation> AddStudentToDriveAsync(int driveId, int studentId, string groupName = "")
     {
         var student = await _db.Students.FindAsync(studentId);
         if (student == null) throw new InvalidOperationException("Student not found");

@@ -309,59 +309,48 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var groupName in DistinctGroups)
+                    @{
+                        int sr = 1;
+                        var evalList = FilteredEvaluations.ToList();
+                    }
+                    @if (!evalList.Any())
                     {
-                        var groupItems = GetGroupEvaluations(groupName);
-                        if (groupItems.Any())
-                        {
-                            <!-- Modern Group Ribbon -->
-                            <tr style="background: linear-gradient(90deg, #eff6ff 0%, #f8fafc 100%); border-top: 1px solid #dbeafe; border-bottom: 1px solid #dbeafe; border-left: 4px solid #2563eb;">
-                                <td colspan="8" style="padding: 10px 16px; font-weight: 800; font-size: 0.92rem; color: #1e40af; text-align: left; letter-spacing: 0.02em;">
-                                    <div class="d-flex justify-space-between align-center flex-wrap gap-2">
-                                        <div class="d-flex align-center gap-2">
-                                            <span style="background: #2563eb; color: #ffffff; padding: 2px 10px; border-radius: 9999px; font-size: 0.78rem; font-weight: 700;">@groupName</span>
-                                            <span style="color: #3b82f6; font-weight: 600; font-size: 0.84rem;">@groupItems.Count student(s) allocated</span>
-                                        </div>
-                                        <div class="d-flex align-center gap-2">
-                                            <span style="font-weight: 700; color: #1e40af; font-size: 0.8rem; background: #ffffff; padding: 2px 10px; border-radius: 9999px; border: 1px solid #bfdbfe;">
-                                                📚 Marks for: @GetActiveDriveSubjectDisplayName()
-                                            </span>
-                                            <small style="font-weight: 600; color: #64748b; font-size: 0.78rem;">M.Tech Data Centre Technology</small>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
+                        <tr>
+                            <td colspan="8" style="padding: 24px; text-align: center; color: #64748b;">
+                                No students match the search filter.
+                            </td>
+                        </tr>
+                    }
+                    @foreach (var item in evalList)
+                    {
+                        var isModified = _modifiedEvaluationIds.Contains(item.Id);
+                        <tr style="border-bottom: 1px solid #f1f5f9; background: @(item.IsAbsent ? "#fef2f2" : (isModified ? "#f0fdf4" : "#ffffff")); transition: background 0.15s ease;">
+                            <!-- Sr -->
+                            <td style="padding: 10px 10px; text-align: center; font-weight: 600; color: #64748b; width: 50px; border-right: 1px solid #f1f5f9;">
+                                @(sr++)
+                                @if (isModified)
+                                {
+                                    <span title="Unsaved changes" style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-left: 3px; vertical-align: middle; box-shadow: 0 0 6px rgba(16,185,129,0.5);"></span>
+                                }
+                            </td>
 
-                            int sr = 1;
-                            foreach (var item in groupItems)
-                            {
-                                var isModified = _modifiedEvaluationIds.Contains(item.Id);
-                                <tr style="border-bottom: 1px solid #f1f5f9; background: @(item.IsAbsent ? "#fef2f2" : (isModified ? "#f0fdf4" : "#ffffff")); transition: background 0.15s ease;">
-                                    <!-- Sr -->
-                                    <td style="padding: 8px 10px; text-align: center; font-weight: 600; color: #64748b; width: 50px; border-right: 1px solid #f1f5f9;">
-                                        @(sr++)
-                                        @if (isModified)
+                            <!-- STUDENT NAME & ROLL -->
+                            <td style="padding: 10px 14px; font-weight: 700; color: #0f172a; width: 230px; border-right: 1px solid #f1f5f9;">
+                                <div class="d-flex flex-column">
+                                    <span style="font-size: 0.95rem; color: #0f172a; font-weight: 700;">@item.Student?.FullName</span>
+                                    <div class="d-flex align-center gap-2 mt-1">
+                                        <span style="font-size: 0.76rem; color: #475569; font-weight: 600; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; border: 1px solid #e2e8f0;">
+                                            Roll: @(item.Student?.StudentCode ?? "—")
+                                        </span>
+                                        @if (item.Student?.EnrollmentStatus != null)
                                         {
-                                            <span title="Unsaved changes" style="display: inline-block; width: 8px; height: 8px; background: #10b981; border-radius: 50%; margin-left: 3px; vertical-align: middle; box-shadow: 0 0 6px rgba(16,185,129,0.5);"></span>
+                                            <span style="font-size: 0.72rem; color: #059669; font-weight: 600;">
+                                                @(item.Student.EnrollmentStatus)
+                                            </span>
                                         }
-                                    </td>
-
-                                    <!-- STUDENT NAME -->
-                                    <td style="padding: 8px 12px; font-weight: 700; color: #0f172a; width: 230px; border-right: 1px solid #f1f5f9;">
-                                        <div class="d-flex flex-column">
-                                            <span style="font-size: 0.94rem; color: #0f172a; font-weight: 700;">@item.Student?.FullName</span>
-                                            <div class="d-flex align-center gap-2 mt-1">
-                                                <select value="@item.StudentGroup" @onchange="@((ChangeEventArgs e) => OnGroupChanged(item, e.Value?.ToString()))"
-                                                        style="font-size: 0.74rem; padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; color: #475569; outline: none; cursor: pointer; font-weight: 600;">
-                                                    <option value="Group A">Group A</option>
-                                                    <option value="Group B">Group B</option>
-                                                    <option value="Group C">Group C</option>
-                                                    <option value="Group D">Group D</option>
-                                                </select>
-                                                <span style="font-size: 0.74rem; color: #94a3b8; font-weight: 500;">Roll: @(item.Student?.StudentCode ?? "—")</span>
-                                            </div>
-                                        </div>
-                                    </td>
+                                    </div>
+                                </div>
+                            </td>
 
                                     <!-- Confidence (Soft Yellow) -->
                                     <td style="padding: 6px 8px; text-align: center; width: 120px; border-right: 1px solid #f1f5f9;">
@@ -428,8 +417,6 @@
                                         </button>
                                     </td>
                                 </tr>
-                            }
-                        }
                     }
                 </tbody>
             </table>
@@ -448,13 +435,6 @@
             {
                 <MudSelectItem Value="@s.Id">@s.FullName (@s.StudentCode)</MudSelectItem>
             }
-        </MudSelect>
-
-        <MudSelect T="string" @bind-Value="_newStudentGroup" Label="Group" Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3">
-            <MudSelectItem Value="@("Group A")">Group A</MudSelectItem>
-            <MudSelectItem Value="@("Group B")">Group B</MudSelectItem>
-            <MudSelectItem Value="@("Group C")">Group C</MudSelectItem>
-            <MudSelectItem Value="@("Group D")">Group D</MudSelectItem>
         </MudSelect>
     </DialogContent>
     <DialogActions>
@@ -639,7 +619,6 @@
 
     private bool _addStudentVisible;
     private int _newStudentId;
-    private string _newStudentGroup = "Group A";
     private List<Student> _availableStudents = new();
 
     private bool _createDriveVisible;
@@ -775,27 +754,18 @@
         _editingDriveTitle = $"Mock Feedback — {date:dd-MM-yyyy}";
     }
 
-    private IEnumerable<string> DistinctGroups
+    private IEnumerable<MockInterviewEvaluation> FilteredEvaluations
     {
         get
         {
-            return _evaluations
-                .Select(e => string.IsNullOrWhiteSpace(e.StudentGroup) ? "Group A" : e.StudentGroup)
-                .Distinct()
-                .OrderBy(g => g);
+            var query = _evaluations.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_searchQuery))
+            {
+                query = query.Where(e => (e.Student?.FullName.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ?? false)
+                                      || (e.Student?.StudentCode.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            return query.OrderBy(e => e.Student?.StudentCode).ThenBy(e => e.Student?.FullName ?? "");
         }
-    }
-
-    private List<MockInterviewEvaluation> GetGroupEvaluations(string groupName)
-    {
-        var list = _evaluations.Where(e => (string.IsNullOrWhiteSpace(e.StudentGroup) ? "Group A" : e.StudentGroup) == groupName);
-
-        if (!string.IsNullOrWhiteSpace(_searchQuery))
-        {
-            list = list.Where(e => (e.Student?.FullName.Contains(_searchQuery, StringComparison.OrdinalIgnoreCase) ?? false));
-        }
-
-        return list.ToList();
     }
 
     private void OnConfidenceChanged(MockInterviewEvaluation item, string? rawValue)
@@ -842,15 +812,6 @@
     {
         item.Feedback = rawValue;
         _modifiedEvaluationIds.Add(item.Id);
-    }
-
-    private void OnGroupChanged(MockInterviewEvaluation item, string? group)
-    {
-        if (!string.IsNullOrWhiteSpace(group))
-        {
-            item.StudentGroup = group;
-            _modifiedEvaluationIds.Add(item.Id);
-        }
     }
 
     private void OnAbsentToggled(MockInterviewEvaluation item, bool isAbsent)
@@ -945,7 +906,6 @@
             return;
         }
         _newStudentId = _availableStudents.First().Id;
-        _newStudentGroup = "Group A";
         _addStudentVisible = true;
     }
 
@@ -954,7 +914,7 @@
         if (_newStudentId <= 0 || _selectedDriveId <= 0) return;
         try
         {
-            await InterviewSvc.AddStudentToDriveAsync(_selectedDriveId, _newStudentId, _newStudentGroup);
+            await InterviewSvc.AddStudentToDriveAsync(_selectedDriveId, _newStudentId);
             _addStudentVisible = false;
             Snackbar.Add("Student added to mock feedback sheet.", Severity.Success);
             await LoadActiveDrive();
@@ -1202,22 +1162,18 @@
         sb.AppendLine("Sr,STUDENT NAME,ROLL NO,SUBJECT,Confidence (0-10),Communication (0-10),Technical (0-10),Marks / 10,Evaluator Feedback & Notes");
 
         var currentSubject = GetActiveDriveSubjectDisplayName();
+        int sr = 1;
 
-        foreach (var group in DistinctGroups)
+        foreach (var e in FilteredEvaluations)
         {
-            sb.AppendLine($",,,{group},,,,");
-            int sr = 1;
-            foreach (var e in GetGroupEvaluations(group))
-            {
-                var conf = e.IsAbsent ? "" : (e.ConfidenceScore?.ToString("0.#") ?? "");
-                var comm = e.IsAbsent ? "" : (e.CommunicationScore?.ToString("0.#") ?? "");
-                var tech = e.IsAbsent ? "" : (e.TechnicalScore?.ToString("0.#") ?? "");
-                var marks = e.IsAbsent ? "absent" : (e.MarksOutOf10?.ToString("0.#") ?? "");
-                var cleanFeedback = (e.Feedback ?? "").Replace("\"", "\"\"");
-                var roll = e.Student?.StudentCode ?? "";
+            var conf = e.IsAbsent ? "" : (e.ConfidenceScore?.ToString("0.#") ?? "");
+            var comm = e.IsAbsent ? "" : (e.CommunicationScore?.ToString("0.#") ?? "");
+            var tech = e.IsAbsent ? "" : (e.TechnicalScore?.ToString("0.#") ?? "");
+            var marks = e.IsAbsent ? "absent" : (e.MarksOutOf10?.ToString("0.#") ?? "");
+            var cleanFeedback = (e.Feedback ?? "").Replace("\"", "\"\"");
+            var roll = e.Student?.StudentCode ?? "";
 
-                sb.AppendLine($"{sr++},\"{e.Student?.FullName}\",\"{roll}\",\"{currentSubject}\",{conf},{comm},{tech},{marks},\"{cleanFeedback}\"");
-            }
+            sb.AppendLine($"{sr++},\"{e.Student?.FullName}\",\"{roll}\",\"{currentSubject}\",{conf},{comm},{tech},{marks},\"{cleanFeedback}\"");
         }
 
         var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
