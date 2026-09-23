@@ -71,6 +71,7 @@ builder.Services.AddScoped<PaymentService>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<AssessmentService>();
 builder.Services.AddScoped<MockInterviewService>();
+builder.Services.AddScoped<MockInterviewImportService>();
 builder.Services.AddScoped<StudentService>();
 
 // Blazor
