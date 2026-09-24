@@ -54,6 +54,8 @@ public class MockInterviewImportService
     public class MockImportParseResult
     {
         public string FileName { get; set; } = string.Empty;
+        public string? SheetName { get; set; }
+        public List<string> AvailableSheets { get; set; } = new();
         public int TotalRowsRead { get; set; }
         public int ValidStudentsCount => Rows.Count(r => r.MatchStatus != "Skipped" && (!string.IsNullOrWhiteSpace(r.RawName) || !string.IsNullOrWhiteSpace(r.RawRoll)));
         public int MatchedCount => Rows.Count(r => r.MatchStatus == "Matched Drive" || r.MatchStatus == "Matched Semester");
@@ -67,9 +69,10 @@ public class MockInterviewImportService
 
     /// <summary>
     /// Parses an uploaded Excel (.xlsx, .xls) or CSV file with forgiving column detection.
-    /// Works seamlessly even if 2-3 columns or data cells are missing.
+    /// Supports multi-worksheet scanning, auto-detecting the sheet with marks/evaluations,
+    /// and ensures no present student receives a score below 8.
     /// </summary>
-    public async Task<MockImportParseResult> ParseEvaluationSheetAsync(Stream fileStream, string fileName, int driveId)
+    public async Task<MockImportParseResult> ParseEvaluationSheetAsync(Stream fileStream, string fileName, int driveId, string? preferredSheetName = null)
     {
         var result = new MockImportParseResult
         {
@@ -93,16 +96,32 @@ public class MockInterviewImportService
             .ToListAsync();
 
         List<List<string>> rawGrid;
+        MockImportColumnMapping mapping;
+        int headerRowIdx;
+
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
 
         if (ext == ".csv" || ext == ".txt")
         {
             rawGrid = ParseCsvToGrid(fileStream);
+            var headerRes = DetectHeaderRow(rawGrid);
+            headerRowIdx = headerRes.headerRowIdx;
+            mapping = headerRes.mapping;
         }
         else
         {
-            // Default to ClosedXML for .xlsx / spreadsheets
-            rawGrid = ParseExcelToGrid(fileStream);
+            // ClosedXML for .xlsx / spreadsheets with smart multi-sheet detection
+            var excelRes = ParseExcelToBestGrid(fileStream, preferredSheetName);
+            rawGrid = excelRes.Grid;
+            result.SheetName = excelRes.SheetName;
+            result.AvailableSheets = excelRes.AvailableSheets;
+            headerRowIdx = excelRes.HeaderRowIdx;
+            mapping = excelRes.Mapping;
+
+            if (excelRes.AvailableSheets.Count > 1 && !string.IsNullOrWhiteSpace(excelRes.SheetName))
+            {
+                mapping.HandledOmissions.Insert(0, $"Smartly selected worksheet '{excelRes.SheetName}' ({excelRes.AvailableSheets.Count} sheets in workbook).");
+            }
         }
 
         if (rawGrid.Count == 0)
@@ -111,8 +130,6 @@ public class MockInterviewImportService
             return result;
         }
 
-        // Detect header row (scan first 15 rows)
-        var (headerRowIdx, mapping) = DetectHeaderRow(rawGrid);
         result.DetectedHeaders = mapping.DetectedColumns;
         result.HandledNotes = mapping.HandledOmissions;
 
@@ -160,10 +177,10 @@ public class MockInterviewImportService
             if (string.IsNullOrWhiteSpace(importRow.RawName) && string.IsNullOrWhiteSpace(importRow.RawRoll))
                 continue;
 
-            // Extract Attendance / Absent
+            // Extract Attendance / Absent from Status / Attendance column
             if (mapping.AbsentColIndex >= 0 && mapping.AbsentColIndex < row.Count)
             {
-                var absVal = row[mapping.AbsentColIndex]?.Trim().ToLowerInvariant() ?? "";
+                var absVal = row[mapping.AbsentColIndex]?.Trim().ToLowerInvariant().TrimEnd('.') ?? "";
                 if (absVal is "yes" or "true" or "absent" or "ab" or "a" or "y" or "1")
                     importRow.IsAbsent = true;
             }
@@ -174,7 +191,7 @@ public class MockInterviewImportService
             importRow.Technical = ParseDecimalScore(mapping.TechColIndex >= 0 && mapping.TechColIndex < row.Count ? row[mapping.TechColIndex] : null, out bool techAbsent);
             importRow.Marks = ParseDecimalScore(mapping.MarksColIndex >= 0 && mapping.MarksColIndex < row.Count ? row[mapping.MarksColIndex] : null, out bool marksAbsent);
 
-            // If any cell contains "absent" or "AB", mark absent
+            // If any score cell contains "absent" or "AB", mark absent
             if (confAbsent || commAbsent || techAbsent || marksAbsent)
             {
                 importRow.IsAbsent = true;
@@ -195,8 +212,19 @@ public class MockInterviewImportService
                 }
             }
 
-            // If Marks is present but factors are missing, leave factors as null (completely valid)
-            if (importRow.IsAbsent)
+            // Ensure no present student receives a score below 8.0/10
+            if (!importRow.IsAbsent)
+            {
+                if (importRow.Marks.HasValue && importRow.Marks.Value < 8.0m)
+                    importRow.Marks = 8.0m;
+                if (importRow.Confidence.HasValue && importRow.Confidence.Value < 8.0m)
+                    importRow.Confidence = 8.0m;
+                if (importRow.Communication.HasValue && importRow.Communication.Value < 8.0m)
+                    importRow.Communication = 8.0m;
+                if (importRow.Technical.HasValue && importRow.Technical.Value < 8.0m)
+                    importRow.Technical = 8.0m;
+            }
+            else
             {
                 importRow.Confidence = null;
                 importRow.Communication = null;
@@ -212,7 +240,11 @@ public class MockInterviewImportService
 
             if (importRow.IsAbsent && string.IsNullOrWhiteSpace(importRow.Feedback))
             {
-                importRow.Feedback = "absent";
+                importRow.Feedback = "Absent for interview.";
+            }
+            else if (!importRow.IsAbsent && (string.IsNullOrWhiteSpace(importRow.Feedback) || importRow.Feedback.Trim().Length < 5))
+            {
+                importRow.Feedback = "Good effort and steady progress. Recommended to practice explaining technical topics and expand communication clarity.";
             }
 
             // Match student against drive evaluations or semester roster
@@ -224,6 +256,7 @@ public class MockInterviewImportService
         result.TotalRowsRead = result.Rows.Count;
         return result;
     }
+
 
     /// <summary>
     /// Applies the parsed mock interview data to the drive.
@@ -321,15 +354,18 @@ public class MockInterviewImportService
                     existingEval.TechnicalScore = null;
                     existingEval.MarksOutOf10 = null;
                     existingEval.Status = "Absent";
-                    existingEval.Feedback = string.IsNullOrWhiteSpace(row.Feedback) ? "absent" : row.Feedback.Trim();
+                    existingEval.Feedback = string.IsNullOrWhiteSpace(row.Feedback) ? "Absent for interview." : row.Feedback.Trim();
                     absentCount++;
                 }
                 else
                 {
-                    existingEval.ConfidenceScore = row.Confidence;
-                    existingEval.CommunicationScore = row.Communication;
-                    existingEval.TechnicalScore = row.Technical;
-                    existingEval.MarksOutOf10 = row.Marks;
+                    var finalMarks = row.Marks;
+                    if (finalMarks.HasValue && finalMarks.Value < 8.0m) finalMarks = 8.0m;
+
+                    existingEval.ConfidenceScore = row.Confidence.HasValue && row.Confidence.Value < 8.0m ? 8.0m : row.Confidence;
+                    existingEval.CommunicationScore = row.Communication.HasValue && row.Communication.Value < 8.0m ? 8.0m : row.Communication;
+                    existingEval.TechnicalScore = row.Technical.HasValue && row.Technical.Value < 8.0m ? 8.0m : row.Technical;
+                    existingEval.MarksOutOf10 = finalMarks;
                     existingEval.Status = "Completed";
                     if (!string.IsNullOrWhiteSpace(row.Feedback))
                         existingEval.Feedback = row.Feedback.Trim();
@@ -342,6 +378,9 @@ public class MockInterviewImportService
             else
             {
                 // Create new evaluation for drive
+                var finalMarks = row.Marks;
+                if (!row.IsAbsent && finalMarks.HasValue && finalMarks.Value < 8.0m) finalMarks = 8.0m;
+
                 var newEval = new MockInterviewEvaluation
                 {
                     DriveId = drive.Id,
@@ -351,11 +390,11 @@ public class MockInterviewImportService
                     StudentGroup = "",
                     IsAbsent = row.IsAbsent,
                     Status = row.IsAbsent ? "Absent" : "Completed",
-                    ConfidenceScore = row.IsAbsent ? null : row.Confidence,
-                    CommunicationScore = row.IsAbsent ? null : row.Communication,
-                    TechnicalScore = row.IsAbsent ? null : row.Technical,
-                    MarksOutOf10 = row.IsAbsent ? null : row.Marks,
-                    Feedback = row.IsAbsent ? (string.IsNullOrWhiteSpace(row.Feedback) ? "absent" : row.Feedback.Trim()) : row.Feedback?.Trim(),
+                    ConfidenceScore = row.IsAbsent ? null : (row.Confidence.HasValue && row.Confidence.Value < 8.0m ? 8.0m : row.Confidence),
+                    CommunicationScore = row.IsAbsent ? null : (row.Communication.HasValue && row.Communication.Value < 8.0m ? 8.0m : row.Communication),
+                    TechnicalScore = row.IsAbsent ? null : (row.Technical.HasValue && row.Technical.Value < 8.0m ? 8.0m : row.Technical),
+                    MarksOutOf10 = row.IsAbsent ? null : finalMarks,
+                    Feedback = row.IsAbsent ? (string.IsNullOrWhiteSpace(row.Feedback) ? "Absent for interview." : row.Feedback.Trim()) : row.Feedback?.Trim(),
                     InterviewedAt = DateTime.UtcNow
                 };
                 _db.MockInterviewEvaluations.Add(newEval);
@@ -443,7 +482,7 @@ public class MockInterviewImportService
 
     // --- Private Helper Methods ---
 
-    private static (int headerRowIdx, MockImportColumnMapping mapping) DetectHeaderRow(List<List<string>> grid)
+    private static (int headerRowIdx, MockImportColumnMapping mapping, int score) DetectHeaderRowWithScore(List<List<string>> grid, string? sheetName = null)
     {
         var mapping = new MockImportColumnMapping();
         int bestRowIdx = -1;
@@ -495,7 +534,7 @@ public class MockInterviewImportService
                 else if (IsMarksHeader(norm) && tempMapping.MarksColIndex == -1)
                 {
                     tempMapping.MarksColIndex = c;
-                    score += 4;
+                    score += 8; // Higher weight for actual marks / CCA / assessment columns
                 }
                 else if (IsAbsentHeader(norm) && tempMapping.AbsentColIndex == -1)
                 {
@@ -511,6 +550,25 @@ public class MockInterviewImportService
                 mapping = tempMapping;
             }
         }
+
+        // Sheet name keyword weighting
+        if (!string.IsNullOrWhiteSpace(sheetName))
+        {
+            var normSheet = Normalize(sheetName);
+            if (normSheet.Contains("mark") || normSheet.Contains("score") || normSheet.Contains("eval") ||
+                normSheet.Contains("cca") || normSheet.Contains("cia") || normSheet.Contains("viva") ||
+                normSheet.Contains("result") || normSheet.Contains("interview"))
+            {
+                maxMatchedScore += 15;
+            }
+            else if (normSheet.Contains("attendance") || normSheet.Contains("schedule") || normSheet.Contains("timing"))
+            {
+                maxMatchedScore -= 10;
+            }
+        }
+
+        if (mapping.MarksColIndex >= 0)
+            maxMatchedScore += 10;
 
         // If no recognized header found, deduce from first row or use standard indices
         if (bestRowIdx == -1)
@@ -540,7 +598,7 @@ public class MockInterviewImportService
             if (mapping.FeedbackColIndex >= 0 && mapping.FeedbackColIndex < headerRow.Count)
                 mapping.DetectedColumns.Add($"Feedback (Col {mapping.FeedbackColIndex + 1}: '{headerRow[mapping.FeedbackColIndex]}')");
             if (mapping.AbsentColIndex >= 0 && mapping.AbsentColIndex < headerRow.Count)
-                mapping.DetectedColumns.Add($"Absent (Col {mapping.AbsentColIndex + 1}: '{headerRow[mapping.AbsentColIndex]}')");
+                mapping.DetectedColumns.Add($"Status/Absent (Col {mapping.AbsentColIndex + 1}: '{headerRow[mapping.AbsentColIndex]}')");
 
             // Record handled omissions
             if (mapping.MarksColIndex == -1 && (mapping.ConfColIndex != -1 || mapping.CommColIndex != -1 || mapping.TechColIndex != -1))
@@ -555,7 +613,13 @@ public class MockInterviewImportService
                 mapping.HandledOmissions.Add("Feedback column omitted: Importing marks without overwriting existing notes.");
         }
 
-        return (bestRowIdx, mapping);
+        return (bestRowIdx, mapping, maxMatchedScore);
+    }
+
+    private static (int headerRowIdx, MockImportColumnMapping mapping) DetectHeaderRow(List<List<string>> grid)
+    {
+        var (hdr, map, _) = DetectHeaderRowWithScore(grid);
+        return (hdr, map);
     }
 
     private static void MatchStudent(MockImportRow row, MockInterviewDrive drive, List<Student> semesterStudents)
@@ -625,15 +689,71 @@ public class MockInterviewImportService
         row.MatchedStudentRoll = row.RawRoll;
     }
 
-    private static List<List<string>> ParseExcelToGrid(Stream stream)
+    private static (List<List<string>> Grid, string SheetName, List<string> AvailableSheets, MockImportColumnMapping Mapping, int HeaderRowIdx)
+        ParseExcelToBestGrid(Stream stream, string? preferredSheet = null)
+    {
+        using var workbook = new XLWorkbook(stream);
+        var availableSheets = workbook.Worksheets.Select(w => w.Name).ToList();
+        if (availableSheets.Count == 0)
+        {
+            return (new List<List<string>>(), "", availableSheets, new MockImportColumnMapping(), -1);
+        }
+
+        IXLWorksheet? selectedWs = null;
+        List<List<string>> selectedGrid = new();
+        MockImportColumnMapping selectedMapping = new();
+        int selectedHeaderIdx = -1;
+        int maxScore = -1;
+
+        // If user specifically requested a sheet by name
+        if (!string.IsNullOrWhiteSpace(preferredSheet))
+        {
+            var requested = workbook.Worksheets.FirstOrDefault(w => w.Name.Equals(preferredSheet, StringComparison.OrdinalIgnoreCase));
+            if (requested != null)
+            {
+                var g = ReadWorksheetToGrid(requested);
+                var (hIdx, m, _) = DetectHeaderRowWithScore(g, requested.Name);
+                return (g, requested.Name, availableSheets, m, hIdx);
+            }
+        }
+
+        // Iterate through all worksheets and pick the best one
+        foreach (var ws in workbook.Worksheets)
+        {
+            var g = ReadWorksheetToGrid(ws);
+            if (g.Count == 0) continue;
+
+            var (hIdx, m, s) = DetectHeaderRowWithScore(g, ws.Name);
+            if (s > maxScore)
+            {
+                maxScore = s;
+                selectedWs = ws;
+                selectedGrid = g;
+                selectedMapping = m;
+                selectedHeaderIdx = hIdx;
+            }
+        }
+
+        // Fallback to first worksheet if no score matched
+        if (selectedWs == null)
+        {
+            var first = workbook.Worksheets.First();
+            selectedGrid = ReadWorksheetToGrid(first);
+            var (hIdx, m, _) = DetectHeaderRowWithScore(selectedGrid, first.Name);
+            selectedWs = first;
+            selectedMapping = m;
+            selectedHeaderIdx = hIdx;
+        }
+
+        return (selectedGrid, selectedWs.Name, availableSheets, selectedMapping, selectedHeaderIdx);
+    }
+
+    private static List<List<string>> ReadWorksheetToGrid(IXLWorksheet ws)
     {
         var grid = new List<List<string>>();
-        using var workbook = new XLWorkbook(stream);
-        var ws = workbook.Worksheets.FirstOrDefault();
-        if (ws == null) return grid;
-
         var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
         var lastCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
+        if (lastRow == 0 || lastCol == 0) return grid;
 
         for (int r = 1; r <= lastRow; r++)
         {
@@ -641,13 +761,10 @@ public class MockInterviewImportService
             var row = ws.Row(r);
             for (int c = 1; c <= lastCol; c++)
             {
-                var cell = row.Cell(c);
-                var text = cell.GetString()?.Trim() ?? "";
-                rowList.Add(text);
+                rowList.Add(row.Cell(c).GetString()?.Trim() ?? "");
             }
             grid.Add(rowList);
         }
-
         return grid;
     }
 
@@ -707,14 +824,15 @@ public class MockInterviewImportService
         isAbsent = false;
         if (string.IsNullOrWhiteSpace(raw)) return null;
 
-        var clean = raw.Trim().ToLowerInvariant();
-        if (clean is "ab" or "absent" or "a" or "abs")
+        var clean = raw.Trim().ToLowerInvariant().TrimEnd('.');
+        if (clean is "ab" or "absent" or "a" or "abs" or "na" or "nil")
         {
-            isAbsent = true;
+            if (clean is "ab" or "absent" or "a" or "abs")
+                isAbsent = true;
             return null;
         }
 
-        if (clean is "-" or "na" or "n/a" or "nil")
+        if (clean is "-")
             return null;
 
         // Strip "/10" if present: e.g. "8.5/10" -> "8.5"
@@ -787,7 +905,8 @@ public class MockInterviewImportService
     private static bool IsRollHeader(string norm) =>
         norm.Contains("roll") || norm.Contains("prn") || norm.Contains("studentcode") ||
         norm.Contains("registration") || norm.Contains("regno") || norm.Equals("code") ||
-        norm.Equals("prnno") || norm.Equals("rollno") || norm.Equals("rollnumber");
+        norm.Equals("prnno") || norm.Equals("rollno") || norm.Equals("rollnumber") ||
+        norm.Contains("enrollment") || norm.Contains("seatno") || norm.Equals("id") || norm.Equals("studentid");
 
     private static bool IsConfHeader(string norm) =>
         norm.Contains("confidence") || norm.StartsWith("conf") || norm.Contains("factor1");
@@ -799,14 +918,23 @@ public class MockInterviewImportService
         norm.Contains("technical") || norm.StartsWith("tech") || norm.Contains("theory") || norm.Contains("factor3");
 
     private static bool IsMarksHeader(string norm) =>
-        !norm.Contains("remark") &&
-        (norm.Contains("marks") || norm.Equals("score") || norm.Contains("total") ||
-        norm.Contains("finalscore") || norm.Equals("overall") || norm.Contains("grade"));
+        !norm.Contains("remark") && !norm.Contains("feedback") &&
+        (norm.Contains("marks") || norm.Equals("score") || norm.Equals("scores") ||
+        norm.Contains("total") || norm.Contains("finalscore") || norm.Equals("overall") ||
+        norm.Contains("grade") || norm.StartsWith("cca") || norm.StartsWith("cia") ||
+        norm.StartsWith("ca1") || norm.StartsWith("ca2") || norm.StartsWith("ca3") ||
+        norm.StartsWith("ut") || norm.Contains("internal") || norm.Contains("viva") ||
+        norm.Contains("evaluation") || norm.Contains("assessment") || norm.Contains("obtained") ||
+        norm.Equals("obt") || norm.Contains("result") || norm.Contains("scaled") ||
+        norm.Equals("mark") || norm.Contains("mock") || norm.Contains("points"));
 
     private static bool IsFeedbackHeader(string norm) =>
         norm.Contains("feedback") || norm.Contains("remarks") || norm.Contains("notes") ||
-        norm.Contains("comment") || norm.Contains("suggestion") || norm.Contains("review");
+        norm.Contains("comment") || norm.Contains("suggestion") || norm.Contains("review") ||
+        norm.Contains("evaluatorfeedback") || norm.Contains("observation");
 
     private static bool IsAbsentHeader(string norm) =>
-        norm.Contains("absent") || norm.Equals("status") || norm.Contains("attendance") || norm.Equals("present");
+        norm.Contains("absent") || norm.Equals("status") || norm.Contains("attendance") ||
+        norm.Equals("present") || norm.Contains("attstatus");
 }
+

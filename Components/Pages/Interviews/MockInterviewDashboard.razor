@@ -667,14 +667,19 @@
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="DownloadTemplate">
                         Download Pre-filled Template
                     </MudButton>
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.AssignmentTurnedIn" OnClick="LoadBundledScheduleExcel">
+                        Load ACC & DSS CCA1 Schedule
+                    </MudButton>
                 </div>
 
                 <div class="mt-4 pt-3" style="border-top: 1px solid #e2e8f0; font-size: 0.8rem; color: #64748b; text-align: left;">
-                    <strong>💡 Resilient Column Support:</strong>
+                    <strong>💡 Resilient Column & Multi-Sheet Support:</strong>
                     <ul style="margin: 4px 0 0 18px; padding: 0;">
-                        <li><strong>Student:</strong> Recognizes <code>Name</code>, <code>Student Name</code>, <code>Candidate</code>, or <code>Roll / PRN</code>.</li>
-                        <li><strong>Scores:</strong> Accepts <code>Marks / 10</code>, or individual <code>Confidence</code>, <code>Communication</code>, <code>Technical</code> factors (auto-calculates overall score if Marks is omitted!).</li>
-                        <li><strong>Attendance:</strong> Rows marked <code>Absent</code>, <code>AB</code>, or with empty marks are flagged as Absent without breaking.</li>
+                        <li><strong>Multi-Sheet:</strong> Smartly detects and extracts the sheet containing marks/evaluations (e.g. <code>MARKS</code>, <code>Evaluation</code>) even if preceded by <code>Attendance</code> or schedule sheets.</li>
+                        <li><strong>Student:</strong> Recognizes <code>Name</code>, <code>Student Name</code>, <code>Candidate</code>, or <code>Roll / PRN / Student Code</code>.</li>
+                        <li><strong>Scores:</strong> Accepts <code>CCA1(10)</code>, <code>Marks / 10</code>, or individual <code>Confidence</code>, <code>Communication</code>, <code>Technical</code> factors.</li>
+                        <li><strong>Attendance:</strong> Rows marked <code>Absent</code>, <code>Ab.</code>, or <code>AB</code> are accurately flagged as Absent.</li>
                     </ul>
                 </div>
             </div>
@@ -683,17 +688,40 @@
         {
             <!-- File Info & Mappings Banner -->
             <div class="pa-3 mb-3 d-flex flex-wrap align-center justify-space-between gap-2" style="background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px;">
-                <div class="d-flex align-center gap-2">
+                <div class="d-flex align-center gap-2 flex-wrap">
                     <MudIcon Icon="@Icons.Material.Filled.InsertDriveFile" Color="Color.Primary" />
                     <div>
                         <strong style="color: #0f172a; font-size: 0.92rem;">@_parsedImport.FileName</strong>
+                        @if (!string.IsNullOrWhiteSpace(_parsedImport.SheetName))
+                        {
+                            <span style="font-size: 0.78rem; background: #e0e7ff; color: #3730a3; padding: 2px 8px; border-radius: 6px; font-weight: 700; margin-left: 6px; border: 1px solid #c7d2fe;">
+                                Worksheet: @_parsedImport.SheetName
+                            </span>
+                        }
                         <span style="font-size: 0.78rem; color: #64748b; margin-left: 8px;">(@_parsedImport.TotalRowsRead total rows read)</span>
                     </div>
                 </div>
-                <label style="font-size: 0.8rem; font-weight: 600; color: #2563eb; cursor: pointer; text-decoration: underline;">
-                    Upload Different File
-                    <InputFile OnChange="OnImportFileSelected" accept=".xlsx,.xls,.csv" style="display: none;" />
-                </label>
+
+                <div class="d-flex align-center gap-3">
+                    @if (_parsedImport.AvailableSheets.Count > 1)
+                    {
+                        <div class="d-flex align-center gap-1">
+                            <span style="font-size: 0.75rem; color: #475569; font-weight: 600;">Worksheet:</span>
+                            <select value="@_parsedImport.SheetName" @onchange="OnSheetSelectionChanged" 
+                                    style="font-size: 0.78rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; border: 1px solid #94a3b8; background: white; color: #1e293b;">
+                                @foreach (var s in _parsedImport.AvailableSheets)
+                                {
+                                    <option value="@s">@s</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <label style="font-size: 0.8rem; font-weight: 600; color: #2563eb; cursor: pointer; text-decoration: underline;">
+                        Upload Different File
+                        <InputFile OnChange="OnImportFileSelected" accept=".xlsx,.xls,.csv" style="display: none;" />
+                    </label>
+                </div>
             </div>
 
             <!-- Detected Headers & Handled Notes -->
@@ -750,7 +778,7 @@
                     </span>
                 </MudCheckBox>
                 <span style="font-size: 0.75rem; color: #64748b;">
-                    Showing preview of up to 12 rows
+                    Showing all @_parsedImport.Rows.Count student rows (scroll to inspect)
                 </span>
             </div>
 
@@ -770,9 +798,10 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var r in _parsedImport.Rows.Take(12))
+                        @foreach (var r in _parsedImport.Rows)
                         {
                             <tr style="border-bottom: 1px solid #f1f5f9; background: @(r.IsAbsent ? "#fff1f2" : "#ffffff");">
+
                                 <td style="padding: 6px 10px; text-align: center; color: #64748b;">@r.RowIndex</td>
                                 <td style="padding: 6px 12px;">
                                     <div style="font-weight: 700; color: #0f172a;">@(string.IsNullOrWhiteSpace(r.MatchedStudentName) ? r.RawName : r.MatchedStudentName)</div>
@@ -1478,6 +1507,9 @@
         }
     }
 
+    private byte[]? _lastUploadedFileBytes;
+    private string? _lastUploadedFileName;
+
     private async Task OnImportFileSelected(InputFileChangeEventArgs e)
     {
         var file = e.File;
@@ -1492,9 +1524,11 @@
             using var stream = file.OpenReadStream(maxAllowedSize: 15 * 1024 * 1024);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
-            ms.Position = 0;
+            _lastUploadedFileBytes = ms.ToArray();
+            _lastUploadedFileName = file.Name;
 
-            _parsedImport = await ImportSvc.ParseEvaluationSheetAsync(ms, file.Name, _selectedDriveId);
+            using var parseMs = new MemoryStream(_lastUploadedFileBytes);
+            _parsedImport = await ImportSvc.ParseEvaluationSheetAsync(parseMs, file.Name, _selectedDriveId);
 
             if (!string.IsNullOrWhiteSpace(_parsedImport.WarningMessage))
             {
@@ -1502,13 +1536,83 @@
             }
             else
             {
-                Snackbar.Add($"Parsed {_parsedImport.ValidStudentsCount} student rows successfully.", Severity.Success);
+                Snackbar.Add($"Parsed {_parsedImport.ValidStudentsCount} student rows successfully from sheet '{_parsedImport.SheetName ?? "default"}'.", Severity.Success);
             }
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Error reading spreadsheet: {ex.Message}", Severity.Error);
             _parsedImport = null;
+        }
+        finally
+        {
+            _isParsing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSheetSelectionChanged(ChangeEventArgs e)
+    {
+        var sheet = e.Value?.ToString();
+        if (string.IsNullOrWhiteSpace(sheet) || _lastUploadedFileBytes == null || _selectedDriveId <= 0) return;
+
+        _isParsing = true;
+        StateHasChanged();
+        try
+        {
+            using var ms = new MemoryStream(_lastUploadedFileBytes);
+            _parsedImport = await ImportSvc.ParseEvaluationSheetAsync(ms, _lastUploadedFileName ?? "data.xlsx", _selectedDriveId, sheet);
+            Snackbar.Add($"Switched to worksheet '{sheet}'.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error switching worksheet: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isParsing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadBundledScheduleExcel()
+    {
+        if (_selectedDriveId <= 0) return;
+
+        var paths = new[]
+        {
+            Path.Combine(HostEnv.ContentRootPath, "Data", "ACC & DSS CCA1 SCHEDULE.xlsx"),
+            Path.Combine(HostEnv.WebRootPath, "templates", "ACC & DSS CCA1 SCHEDULE.xlsx"),
+            @"C:\Users\prana\Documents\ACC & DSS CCA1 SCHEDULE.xlsx"
+        };
+
+        var filePath = paths.FirstOrDefault(File.Exists);
+        if (filePath == null)
+        {
+            Snackbar.Add("ACC & DSS CCA1 SCHEDULE.xlsx could not be located on the server.", Severity.Warning);
+            return;
+        }
+
+        _isParsing = true;
+        StateHasChanged();
+
+        try
+        {
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            {
+                using var ms = new MemoryStream();
+                await fs.CopyToAsync(ms);
+                _lastUploadedFileBytes = ms.ToArray();
+                _lastUploadedFileName = Path.GetFileName(filePath);
+            }
+
+            using var parseMs = new MemoryStream(_lastUploadedFileBytes);
+            _parsedImport = await ImportSvc.ParseEvaluationSheetAsync(parseMs, _lastUploadedFileName, _selectedDriveId);
+            Snackbar.Add($"Loaded {_parsedImport.ValidStudentsCount} students from {_lastUploadedFileName} (Sheet: {_parsedImport.SheetName}).", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed loading schedule Excel: {ex.Message}", Severity.Error);
         }
         finally
         {
