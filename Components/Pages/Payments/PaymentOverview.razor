@@ -107,9 +107,15 @@
                 <!-- Specific Dates: From Date and To Date pickers -->
                 <div class="d-flex align-center flex-wrap gap-2">
                     <MudDatePicker Date="@_customStartDate" DateChanged="OnCustomStartDateChanged" Label="From Date"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:150px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"
+                                   AutoClose="true" ShowToolbar="false"
+                                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
+                                   Class="payover-controls__picker" />
                     <MudDatePicker Date="@_customEndDate" DateChanged="OnCustomEndDateChanged" Label="To Date"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:150px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy"
+                                   AutoClose="true" ShowToolbar="false"
+                                   AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft"
+                                   Class="payover-controls__picker" />
 
                     <!-- Quick Presets -->
                     <div class="d-flex flex-wrap gap-1">
@@ -615,11 +621,15 @@
                 <MudGrid Spacing="2">
                     <MudItem xs="12" sm="4">
                         <MudDatePicker Date="@_sanctionStartDate" DateChanged="OnSanctionStartDateChanged"
-                                       Label="Start Date" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                       Label="Start Date" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                       DateFormat="dd/MM/yyyy" AutoClose="true" ShowToolbar="false"
+                                       AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" />
                     </MudItem>
                     <MudItem xs="12" sm="4">
                         <MudDatePicker Date="@_sanctionEndDate" DateChanged="OnSanctionEndDateChanged"
-                                       Label="End Date" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                                       Label="End Date" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                       DateFormat="dd/MM/yyyy" AutoClose="true" ShowToolbar="false"
+                                       AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" />
                     </MudItem>
                     <MudItem xs="12" sm="4" Class="d-flex align-center">
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
@@ -639,7 +649,9 @@
                             <MudTextField @bind-Value="_sanctionRefNo" Label="Reference Number" Variant="Variant.Outlined" Margin="Margin.Dense" />
                         </MudItem>
                         <MudItem xs="12" sm="6">
-                            <MudDatePicker @bind-Date="_sanctionMemoDate" Label="Date of Memorandum" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                            <MudDatePicker @bind-Date="_sanctionMemoDate" Label="Date of Memorandum" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                           DateFormat="dd/MM/yyyy" AutoClose="true" ShowToolbar="false"
+                                           AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" />
                         </MudItem>
                         <MudItem xs="12" sm="6">
                             <MudTextField @bind-Value="_sanctionCycleLabel" Label="Cycle Title" Variant="Variant.Outlined" Margin="Margin.Dense" />

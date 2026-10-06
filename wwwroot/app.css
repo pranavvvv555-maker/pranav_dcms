@@ -1257,7 +1257,7 @@ h1, h2, h3, h4, h5, h6, .mud-typography-h1, .mud-typography-h2, .mud-typography-
 }
 .payover-controls__date-pill strong { color: #164e80; font-family: var(--font-heading); }
 .payover-controls__date-pill .mud-icon-root { color: #caa343; font-size: 1.1rem; }
-.payover-controls__picker { width: 210px; margin-bottom: -3px !important; }
+.payover-controls__picker { width: 175px !important; min-width: 175px !important; margin-bottom: 0 !important; }
 .payover-controls__search { width: 230px; margin-bottom: -3px !important; }
 
 .payover-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }

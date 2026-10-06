@@ -53,7 +53,7 @@
             <span>Selected date</span>
             <strong>@_selectedDate.ToString("dddd, dd MMMM yyyy")</strong>
         </div>
-        <MudDatePicker Date="@_selectedDate" DateChanged="SelectCustomDate" Label="Choose another date" Variant="Variant.Outlined" Margin="Margin.Dense" Class="selected-day-banner__picker" />
+        <MudDatePicker Date="@_selectedDate" DateChanged="SelectCustomDate" Label="Choose another date" Variant="Variant.Outlined" Margin="Margin.Dense" Class="selected-day-banner__picker" DateFormat="dd/MM/yyyy" AutoClose="true" ShowToolbar="false" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" />
         <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.TaskAlt"
                    Disabled="@(!CanSubmitDay)" OnClick="OpenSubmitDayDialog" Class="selected-day-banner__submit">
             @SubmitDayButtonLabel
