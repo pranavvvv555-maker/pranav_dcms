@@ -877,11 +877,30 @@ public static class SeedData
         var startDate = new DateTime(2026, 9, 11);
         var endDate = new DateTime(2026, 10, 4);
 
+        // Academic Holidays in this cycle:
+        // 1. 14-Sep-2026: Ganesh Chaturthi (Monday)
+        // 2. 18-Sep-2026: Gouri Poojan (Friday)
+        // 3. 25-Sep-2026: Anant Chaturdashi (Friday)
+        // 4. 02-Oct-2026: Gandhi Jayanti (Friday)
+        var holidays = new Dictionary<DateTime, string>
+        {
+            { new DateTime(2026, 9, 14), "Ganesh Chaturthi" },
+            { new DateTime(2026, 9, 18), "Gouri Poojan" },
+            { new DateTime(2026, 9, 25), "Anant Chaturdashi" },
+            { new DateTime(2026, 10, 2), "Gandhi Jayanti" }
+        };
+
         var existingSessions = await db.Sessions
             .Where(s => s.Date >= startDate && s.Date <= endDate)
             .ToListAsync();
 
-        if (existingSessions.Count == 107 && existingSessions.Sum(s => s.DurationHours) == 107.0m)
+        var periodName = "11 September - 04 October 2026";
+        var period = await db.PaymentPeriods.FirstOrDefaultAsync(p => p.PeriodName == periodName || (p.StartDate == startDate && p.EndDate == endDate));
+        var existingLineItems = period != null
+            ? await db.PaymentLineItems.Where(l => l.PaymentPeriodId == period.Id).ToListAsync()
+            : new List<PaymentLineItem>();
+
+        if (existingSessions.Count == 83 && existingSessions.Sum(s => s.DurationHours) == 83.0m && existingLineItems.Any() && existingLineItems.Sum(l => l.TotalHours) == 83.0m)
         {
             return;
         }
@@ -916,6 +935,11 @@ public static class SeedData
 
         for (var curr = startDate; curr <= endDate; curr = curr.AddDays(1))
         {
+            if (holidays.ContainsKey(curr.Date))
+            {
+                continue; // Academic holiday - no classes conducted
+            }
+
             var day = curr.DayOfWeek;
             if (day == DayOfWeek.Thursday)
             {
@@ -1035,8 +1059,6 @@ public static class SeedData
         }
 
         // Ensure Payment Period
-        var periodName = "11 September - 04 October 2026";
-        var period = await db.PaymentPeriods.FirstOrDefaultAsync(p => p.PeriodName == periodName || (p.StartDate == startDate && p.EndDate == endDate));
         if (period == null)
         {
             period = new PaymentPeriod
@@ -1056,42 +1078,44 @@ public static class SeedData
             await db.SaveChangesAsync();
         }
 
-        var existingLineItems = await db.PaymentLineItems.Where(l => l.PaymentPeriodId == period.Id).ToListAsync();
-        if (!existingLineItems.Any())
+        if (existingLineItems.Any())
         {
-            var conducted = await db.Sessions
-                .Where(s => s.Date >= startDate && s.Date <= endDate && s.Status == SessionStatus.Conducted && s.IsApproved)
-                .GroupBy(s => s.FacultyId)
-                .Select(g => new
-                {
-                    FacultyId = g.Key,
-                    LecCount = g.Count(s => s.SessionType == "Lecture" || s.SessionType == "Tutorial"),
-                    PracCount = g.Count(s => s.SessionType != "Lecture" && s.SessionType != "Tutorial"),
-                    TotHours = g.Sum(s => s.DurationHours)
-                })
-                .ToListAsync();
-
-            foreach (var item in conducted)
-            {
-                var gross = item.TotHours * 1200.0m;
-                db.PaymentLineItems.Add(new PaymentLineItem
-                {
-                    PaymentPeriodId = period.Id,
-                    FacultyId = item.FacultyId,
-                    TotalHours = item.TotHours,
-                    HourlyRate = 1200.0m,
-                    GrossAmount = gross,
-                    Deductions = 0m,
-                    NetPayable = gross,
-                    LectureCount = item.LecCount,
-                    LectureRate = 1200.0m,
-                    PracticalCount = item.PracCount,
-                    PracticalRate = 1200.0m,
-                    Notes = "Regular teaching honorarium"
-                });
-            }
+            db.PaymentLineItems.RemoveRange(existingLineItems);
             await db.SaveChangesAsync();
         }
+
+        var conducted = await db.Sessions
+            .Where(s => s.Date >= startDate && s.Date <= endDate && s.Status == SessionStatus.Conducted && s.IsApproved)
+            .GroupBy(s => s.FacultyId)
+            .Select(g => new
+            {
+                FacultyId = g.Key,
+                LecCount = g.Count(s => s.SessionType == "Lecture" || s.SessionType == "Tutorial"),
+                PracCount = g.Count(s => s.SessionType != "Lecture" && s.SessionType != "Tutorial"),
+                TotHours = g.Sum(s => s.DurationHours)
+            })
+            .ToListAsync();
+
+        foreach (var item in conducted)
+        {
+            var gross = item.TotHours * 1200.0m;
+            db.PaymentLineItems.Add(new PaymentLineItem
+            {
+                PaymentPeriodId = period.Id,
+                FacultyId = item.FacultyId,
+                TotalHours = item.TotHours,
+                HourlyRate = 1200.0m,
+                GrossAmount = gross,
+                Deductions = 0m,
+                NetPayable = gross,
+                LectureCount = item.LecCount,
+                LectureRate = 1200.0m,
+                PracticalCount = item.PracCount,
+                PracticalRate = 1200.0m,
+                Notes = "Regular teaching honorarium (Adjusted for holidays & substitution)"
+            });
+        }
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureInductionStudentsAsync(AppDbContext db)

@@ -1,6 +1,7 @@
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 QuestPDF.Settings.License = LicenseType.Community;
 QuestPDF.Settings.EnableDebugging = true;
@@ -419,3 +420,15 @@ Console.WriteLine($"Generated at: {appDocPdfPath}");
 
 document.GeneratePdf(rootPdfPath);
 Console.WriteLine($"Generated at: {rootPdfPath}");
+
+var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<DCMSApp.Data.AppDbContext>()
+    .UseSqlite(@"Data Source=d:\DCMSApp\dcms.db")
+    .Options;
+using var db = new DCMSApp.Data.AppDbContext(options);
+await DCMSApp.Data.SeedData.InitializeAsync(db);
+
+var sessionsCount = db.Sessions.Count(s => s.Date >= new DateTime(2026, 9, 11) && s.Date <= new DateTime(2026, 10, 4));
+var totalHours = db.Sessions.Where(s => s.Date >= new DateTime(2026, 9, 11) && s.Date <= new DateTime(2026, 10, 4)).Sum(s => s.DurationHours);
+var lineItemsSum = db.PaymentLineItems.Where(l => l.PaymentPeriod.PeriodName == "11 September - 04 October 2026").Sum(l => l.NetPayable);
+
+Console.WriteLine($"Reseed successful! Sessions: {sessionsCount}, Total Hours: {totalHours}, Total Payment: Rs. {lineItemsSum}");

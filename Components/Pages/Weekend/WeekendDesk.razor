@@ -60,6 +60,13 @@
         </MudButton>
     </section>
 
+    @if (GetHolidayName(_selectedDate) is string holidayName)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Dense="true" Class="mb-3 rounded-lg" Icon="@Icons.Material.Filled.BeachAccess">
+            <b>Academic Holiday: @holidayName</b> — Institutional holiday observed on @(_selectedDate.ToString("dd MMMM yyyy")). No lectures or laboratory sessions were conducted.
+        </MudAlert>
+    }
+
     <MudTabs @bind-ActivePanelIndex="_activeTab" Class="weekend-desk-tabs" Rounded="true" Elevation="0">
         <MudTabPanel Text="Timetable plan" Icon="@Icons.Material.Filled.CalendarMonth">
             <div class="timetable-plan-callout">
@@ -851,4 +858,15 @@
         var daysSinceThursday = ((int)date.DayOfWeek - (int)DayOfWeek.Thursday + 7) % 7;
         return date.Date.AddDays(-daysSinceThursday);
     }
+
+    private static readonly Dictionary<DateTime, string> AcademicHolidays = new()
+    {
+        { new DateTime(2026, 9, 14), "Ganesh Chaturthi" },
+        { new DateTime(2026, 9, 18), "Gouri Poojan" },
+        { new DateTime(2026, 9, 25), "Anant Chaturdashi" },
+        { new DateTime(2026, 10, 2), "Gandhi Jayanti" }
+    };
+
+    private static string? GetHolidayName(DateTime date) =>
+        AcademicHolidays.TryGetValue(date.Date, out var name) ? name : null;
 }
