@@ -28,6 +28,9 @@ public class Session
     public DateTime? ApprovedAt { get; set; }
     public bool IsApproved { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsOnline { get; set; } = false;
+    public string? MeetingPlatform { get; set; }
+    public string? MeetingLink { get; set; }
 
     // Navigation
     public TimetableSlot? TimetableSlot { get; set; }

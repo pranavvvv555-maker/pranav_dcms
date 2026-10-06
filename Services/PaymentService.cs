@@ -288,7 +288,10 @@ public class PaymentService(AppDbContext db)
                     s.ActualStartTime,
                     s.ActualEndTime,
                     s.DurationHours,
-                    GetSessionSingleRate(s, item.Rates)))
+                    GetSessionSingleRate(s, item.Rates),
+                    s.IsOnline,
+                    s.MeetingPlatform,
+                    s.MeetingLink))
                 .ToList();
 
             var monthlyItems = monthlySessions
@@ -303,7 +306,10 @@ public class PaymentService(AppDbContext db)
                     s.ActualStartTime,
                     s.ActualEndTime,
                     s.DurationHours,
-                    GetSessionSingleRate(s, item.Rates)))
+                    GetSessionSingleRate(s, item.Rates),
+                    s.IsOnline,
+                    s.MeetingPlatform,
+                    s.MeetingLink))
                 .ToList();
 
             return new FacultyPaymentOverview(
@@ -2203,7 +2209,10 @@ public sealed record FacultyConductedSessionItem(
     TimeSpan StartTime,
     TimeSpan EndTime,
     decimal DurationHours,
-    decimal Amount);
+    decimal Amount,
+    bool IsOnline = false,
+    string? MeetingPlatform = null,
+    string? MeetingLink = null);
 
 public sealed record SessionPaymentAmount(
     int SessionId,

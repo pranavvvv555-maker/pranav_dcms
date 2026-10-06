@@ -85,6 +85,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
+    try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN IsOnline INTEGER NOT NULL DEFAULT 0;"); } catch { }
+    try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN MeetingPlatform TEXT NULL;"); } catch { }
+    try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN MeetingLink TEXT NULL;"); } catch { }
     await SeedData.InitializeAsync(db);
 }
 

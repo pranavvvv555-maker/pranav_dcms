@@ -1,6 +1,9 @@
 @page "/payment-overview"
 @rendermode InteractiveServer
 @inject PaymentService PaymentSvc
+@inject SessionService SessionSvc
+@inject FacultyService FacultySvc
+@inject CourseService CourseSvc
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject IWebHostEnvironment HostEnv
@@ -23,6 +26,9 @@
         <div class="payover-header__actions">
             <MudButton Href="/weekend" Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.CalendarMonth">
                 Weekend Desk
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.VideoCall" OnClick="OpenOnlineLectureModal">
+                + Add Online Lecture
             </MudButton>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Article" OnClick="OpenExecutiveSanctionDialog">
                 Executive Cover Page
@@ -487,7 +493,22 @@
                                         <small style="color:#71849a;">@context.CourseCode</small>
                                     </MudTd>
                                     <MudTd>
-                                        <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                        <div class="d-flex align-center flex-wrap gap-1">
+                                            <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                            @if (context.IsOnline)
+                                            {
+                                                <span class="status-pill" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:0.7rem; font-weight:700;">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Videocam" Size="Size.Small" Style="font-size:0.85rem; vertical-align:text-bottom; margin-right:2px;" />
+                                                    Online @(!string.IsNullOrEmpty(context.MeetingPlatform) ? $"({context.MeetingPlatform})" : "")
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(context.MeetingLink))
+                                        {
+                                            <a href="@context.MeetingLink" target="_blank" style="font-size:0.7rem; color:#2563eb; display:inline-flex; align-items:center; gap:2px; margin-top:2px; text-decoration:underline;">
+                                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Style="font-size:0.75rem;" /> Join Link
+                                            </a>
+                                        }
                                     </MudTd>
                                     <MudTd>@FormatTime(context.StartTime) – @FormatTime(context.EndTime)</MudTd>
                                     <MudTd Style="text-align:right; font-weight:800; color:#104373;">₹@context.Amount.ToString("N0")</MudTd>
@@ -537,7 +558,22 @@
                                         <small style="color:#71849a;">@context.CourseCode</small>
                                     </MudTd>
                                     <MudTd>
-                                        <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                        <div class="d-flex align-center flex-wrap gap-1">
+                                            <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                            @if (context.IsOnline)
+                                            {
+                                                <span class="status-pill" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:0.7rem; font-weight:700;">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Videocam" Size="Size.Small" Style="font-size:0.85rem; vertical-align:text-bottom; margin-right:2px;" />
+                                                    Online @(!string.IsNullOrEmpty(context.MeetingPlatform) ? $"({context.MeetingPlatform})" : "")
+                                                </span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(context.MeetingLink))
+                                        {
+                                            <a href="@context.MeetingLink" target="_blank" style="font-size:0.7rem; color:#2563eb; display:inline-flex; align-items:center; gap:2px; margin-top:2px; text-decoration:underline;">
+                                                <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Style="font-size:0.75rem;" /> Join Link
+                                            </a>
+                                        }
                                     </MudTd>
                                     <MudTd>@FormatTime(context.StartTime) – @FormatTime(context.EndTime)</MudTd>
                                     <MudTd Style="text-align:right; font-weight:800; color:#047857;">₹@context.Amount.ToString("N0")</MudTd>
@@ -809,6 +845,84 @@
     </DialogActions>
 </MudDialog>
 
+<!-- Add Online Lecture Modal -->
+<MudDialog @bind-Visible="_onlineLectureDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon" style="background:#e0f2fe; color:#0284c7;">
+                <MudIcon Icon="@Icons.Material.Filled.VideoCall" />
+            </span>
+            <div>
+                <MudText Typo="Typo.h6">Record Online Lecture / Class</MudText>
+                <MudText Typo="Typo.caption">Record virtual lectures conducted on holidays or weekends. Adds immediately to payroll.</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="mb-3">
+            <span style="font-size:0.72rem; font-weight:800; color:#475569; text-transform:uppercase;">Holiday Quick Select:</span>
+            <div class="d-flex flex-wrap gap-1 mt-1">
+                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 9, 18), "Gouri Poojan"))">18 Sep (Gouri Poojan)</MudChip>
+                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 9, 25), "Anant Chaturdashi"))">25 Sep (Anant Chaturdashi)</MudChip>
+                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 10, 2), "Gandhi Jayanti"))">02 Oct (Gandhi Jayanti)</MudChip>
+                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 9, 14), "Ganesh Chaturthi"))">14 Sep (Ganesh Chaturthi)</MudChip>
+            </div>
+        </div>
+
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_onlineLectureDate" Label="Class date" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy" AutoClose="true" ShowToolbar="false" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_onlineLectureType" Label="Class type" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true">
+                    <MudSelectItem Value="@("Lecture")">Lecture</MudSelectItem>
+                    <MudSelectItem Value="@("Tutorial")">Tutorial</MudSelectItem>
+                    <MudSelectItem Value="@("Practical")">Practical</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_onlineLectureFacultyId" Label="Professor" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true">
+                    @foreach (var faculty in _allFacultyList.Where(f => f.IsActive))
+                    {
+                        <MudSelectItem Value="@faculty.Id">@faculty.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12">
+                <MudSelect @bind-Value="_onlineLectureCourseId" Label="Subject" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true">
+                    @foreach (var course in _allCoursesList)
+                    {
+                        <MudSelectItem Value="@course.Id">@course.CourseCode — @course.CourseName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_onlineLecturePlatform" Label="Online Platform" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                    <MudSelectItem Value="@("Microsoft Teams")">Microsoft Teams</MudSelectItem>
+                    <MudSelectItem Value="@("Google Meet")">Google Meet</MudSelectItem>
+                    <MudSelectItem Value="@("Zoom")">Zoom</MudSelectItem>
+                    <MudSelectItem Value="@("Webex")">Webex</MudSelectItem>
+                    <MudSelectItem Value="@("Virtual Classroom")">Virtual Classroom</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_onlineLectureMeetingLink" Label="Meeting Link (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Link" Placeholder="https://teams.microsoft.com/..." />
+            </MudItem>
+            <MudItem xs="6">
+                <MudTimePicker @bind-Time="_onlineLectureStart" Label="Start time" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="6">
+                <MudTimePicker @bind-Time="_onlineLectureEnd" Label="End time" Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+        </MudGrid>
+        <MudTextField @bind-Value="_onlineLectureNotes" Label="Notes (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="mt-2" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@(() => _onlineLectureDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SaveOnlineLecture">Save & Recalculate</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     [Microsoft.AspNetCore.Components.SupplyParameterFromQuery(Name = "date")]
     public DateTime? ReportDate { get; set; }
@@ -819,6 +933,20 @@
     private string _selectedFilter = "All";
     private bool _breakdownDialogVisible;
     private FacultyPaymentOverview? _selectedFaculty;
+
+    // Online Lecture State
+    private List<Faculty> _allFacultyList = new();
+    private List<Course> _allCoursesList = new();
+    private bool _onlineLectureDialogVisible;
+    private DateTime? _onlineLectureDate = DateTime.Today;
+    private int _onlineLectureFacultyId;
+    private int _onlineLectureCourseId;
+    private string _onlineLectureType = "Lecture";
+    private string _onlineLecturePlatform = "Microsoft Teams";
+    private string? _onlineLectureMeetingLink;
+    private TimeSpan? _onlineLectureStart = new(9, 0, 0);
+    private TimeSpan? _onlineLectureEnd = new(10, 0, 0);
+    private string? _onlineLectureNotes;
 
     // Executive Sanction State
     private bool _executiveSanctionDialogVisible;
@@ -938,6 +1066,9 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _allFacultyList = await FacultySvc.GetAllAsync();
+        _allCoursesList = await CourseSvc.GetAllAsync();
+
         if (ReportDate.HasValue)
             _referenceDate = ReportDate.Value.Date;
 
@@ -1047,6 +1178,66 @@
             WeekendEnd,
             PeriodStart,
             PeriodEnd);
+    }
+
+    private void OpenOnlineLectureModal()
+    {
+        _onlineLectureDate = PeriodStart;
+        _onlineLectureFacultyId = _allFacultyList.FirstOrDefault(f => f.IsActive)?.Id ?? 0;
+        _onlineLectureCourseId = _allCoursesList.FirstOrDefault()?.Id ?? 0;
+        _onlineLectureType = "Lecture";
+        _onlineLecturePlatform = "Microsoft Teams";
+        _onlineLectureMeetingLink = null;
+        _onlineLectureStart = new TimeSpan(9, 0, 0);
+        _onlineLectureEnd = new TimeSpan(10, 0, 0);
+        _onlineLectureNotes = "Online lecture";
+        _onlineLectureDialogVisible = true;
+    }
+
+    private void QuickSelectHoliday(DateTime date, string holidayName)
+    {
+        _onlineLectureDate = date;
+        _onlineLectureNotes = $"Online lecture conducted on {holidayName}";
+    }
+
+    private async Task SaveOnlineLecture()
+    {
+        if (!_onlineLectureDate.HasValue || _onlineLectureFacultyId == 0 || _onlineLectureCourseId == 0)
+        {
+            Snackbar.Add("Please specify date, professor, and subject.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            var session = new Session
+            {
+                Date = _onlineLectureDate.Value.Date,
+                FacultyId = _onlineLectureFacultyId,
+                CourseId = _onlineLectureCourseId,
+                ActualStartTime = _onlineLectureStart ?? TimeSpan.Zero,
+                ActualEndTime = _onlineLectureEnd ?? TimeSpan.Zero,
+                SessionType = _onlineLectureType,
+                Notes = _onlineLectureNotes,
+                IsOnline = true,
+                MeetingPlatform = _onlineLecturePlatform,
+                MeetingLink = _onlineLectureMeetingLink,
+                LoggedBy = "Administrator",
+                Status = SessionStatus.Conducted,
+                IsApproved = true,
+                ApprovedBy = "Administrator",
+                ApprovedAt = DateTime.UtcNow
+            };
+
+            await SessionSvc.LogSessionAsync(session);
+            _onlineLectureDialogVisible = false;
+            await LoadOverview();
+            Snackbar.Add("Online lecture saved and immediately calculated into payroll.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save online lecture: {ex.Message}", Severity.Error);
+        }
     }
 
     private void OpenBreakdownDialog(FacultyPaymentOverview faculty)

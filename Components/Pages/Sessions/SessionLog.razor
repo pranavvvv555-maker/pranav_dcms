@@ -162,9 +162,24 @@
                                 <MudText Typo="Typo.subtitle2">@context.Item.Faculty.FullName</MudText>
                             </CellTemplate>
                         </TemplateColumn>
-                        <TemplateColumn Title="Class type">
+                        <TemplateColumn Title="Class type & Mode">
                             <CellTemplate>
-                                <span class="type-pill">@context.Item.SessionType</span>
+                                <div class="d-flex align-center flex-wrap gap-1">
+                                    <span class="type-pill">@context.Item.SessionType</span>
+                                    @if (context.Item.IsOnline)
+                                    {
+                                        <span class="status-pill" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:0.7rem; font-weight:700;">
+                                            <MudIcon Icon="@Icons.Material.Filled.Videocam" Size="Size.Small" Style="font-size:0.85rem; vertical-align:text-bottom; margin-right:2px;" />
+                                            Online @(!string.IsNullOrEmpty(context.Item.MeetingPlatform) ? $"({context.Item.MeetingPlatform})" : "")
+                                        </span>
+                                    }
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(context.Item.MeetingLink))
+                                {
+                                    <a href="@context.Item.MeetingLink" target="_blank" style="font-size:0.7rem; color:#2563eb; display:inline-flex; align-items:center; gap:2px; margin-top:2px; text-decoration:underline;">
+                                        <MudIcon Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small" Style="font-size:0.75rem;" /> Join Link
+                                    </a>
+                                }
                             </CellTemplate>
                         </TemplateColumn>
                         <PropertyColumn Property="x => x.Course.CourseName" Title="Subject" />
@@ -204,6 +219,32 @@
     </TitleContent>
     <DialogContent>
         <MudGrid>
+            <MudItem xs="12">
+                <div class="d-flex align-center justify-space-between p-2 rounded" style="background:#f1f5f9; border:1px solid #cbd5e1;">
+                    <span style="font-weight:700; font-size:0.8rem; color:#1e293b;">Delivery Mode:</span>
+                    <MudRadioGroup @bind-Value="_newSession_IsOnline">
+                        <MudRadio Value="false" Color="Color.Default" Dense="true">🏫 In-Person (Classroom)</MudRadio>
+                        <MudRadio Value="true" Color="Color.Primary" Dense="true">🌐 Online Lecture</MudRadio>
+                    </MudRadioGroup>
+                </div>
+            </MudItem>
+
+            @if (_newSession_IsOnline)
+            {
+                <MudItem xs="12" sm="6">
+                    <MudSelect @bind-Value="_newSession_Platform" Label="Online Platform" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true">
+                        <MudSelectItem Value="@("Microsoft Teams")">Microsoft Teams</MudSelectItem>
+                        <MudSelectItem Value="@("Google Meet")">Google Meet</MudSelectItem>
+                        <MudSelectItem Value="@("Zoom")">Zoom</MudSelectItem>
+                        <MudSelectItem Value="@("Webex")">Webex</MudSelectItem>
+                        <MudSelectItem Value="@("Virtual Classroom")">Virtual Classroom</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_newSession_MeetingLink" Label="Meeting Link (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Link" Placeholder="https://teams.microsoft.com/..." />
+                </MudItem>
+            }
+
             <MudItem xs="12" sm="6">
                 <MudDatePicker @bind-Date="_newSession_Date" Label="Class date" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true" />
             </MudItem>
@@ -268,6 +309,9 @@
     private TimeSpan? _newSession_End = new(16, 45, 0);
     private string _newSession_Type = "Lecture";
     private string? _newSession_Notes;
+    private bool _newSession_IsOnline;
+    private string _newSession_Platform = "Microsoft Teams";
+    private string? _newSession_MeetingLink;
 
     protected override async Task OnInitializedAsync()
     {
@@ -289,6 +333,9 @@
         _newSession_End = new TimeSpan(16, 45, 0);
         _newSession_Type = "Lecture";
         _newSession_Notes = null;
+        _newSession_IsOnline = false;
+        _newSession_Platform = "Microsoft Teams";
+        _newSession_MeetingLink = null;
         _newSession_FacultyId = _allFaculty.FirstOrDefault(f => f.IsActive)?.Id ?? 0;
         _newSession_CourseId = _allCourses.FirstOrDefault()?.Id ?? 0;
         _logDialogVisible = true;
@@ -309,6 +356,9 @@
                 ActualEndTime = _newSession_End ?? TimeSpan.Zero,
                 SessionType = _newSession_Type,
                 Notes = _newSession_Notes,
+                IsOnline = _newSession_IsOnline,
+                MeetingPlatform = _newSession_IsOnline ? _newSession_Platform : null,
+                MeetingLink = _newSession_IsOnline ? _newSession_MeetingLink : null,
                 LoggedBy = "Administrator",
                 IsApproved = true,
                 ApprovedBy = "Administrator",

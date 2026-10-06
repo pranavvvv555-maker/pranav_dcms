@@ -425,6 +425,9 @@ var options = new Microsoft.EntityFrameworkCore.DbContextOptionsBuilder<DCMSApp.
     .UseSqlite(@"Data Source=d:\DCMSApp\dcms.db")
     .Options;
 using var db = new DCMSApp.Data.AppDbContext(options);
+try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN IsOnline INTEGER NOT NULL DEFAULT 0;"); } catch { }
+try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN MeetingPlatform TEXT NULL;"); } catch { }
+try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN MeetingLink TEXT NULL;"); } catch { }
 await DCMSApp.Data.SeedData.InitializeAsync(db);
 
 var sessionsCount = db.Sessions.Count(s => s.Date >= new DateTime(2026, 9, 11) && s.Date <= new DateTime(2026, 10, 4));
