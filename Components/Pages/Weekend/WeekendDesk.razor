@@ -13,7 +13,7 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="mt-2 simple-page">
     <section class="page-intro weekend-desk-intro">
         <div>
-            <span class="premium-eyebrow">Friday · Saturday · Sunday</span>
+            <span class="premium-eyebrow">Thursday · Friday · Saturday · Sunday</span>
             <MudText Typo="Typo.h4">Weekend desk</MudText>
             <MudText Typo="Typo.body2">Each night, record the classes conducted, mark student attendance, and review the faculty report in one place.</MudText>
         </div>
@@ -68,6 +68,13 @@
                     <MudText Typo="Typo.subtitle1">Classes planned for @_selectedDate.ToString("dddd, dd MMM")</MudText>
                     <MudText Typo="Typo.body2">Prepare this day from the timetable, then edit any professor, subject, time, or class type. When every class is complete, submit the day to update attendance, reports, and payments.</MudText>
                 </div>
+                <div class="d-flex align-center gap-2 flex-wrap">
+                    <MudSelect T="int" @bind-Value="_selectedTimetableVersion" Label="Timetable Model" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="min-width: 280px; background: white;">
+                        <MudSelectItem Value="2">Official Academic (Thu–Sun, 28 Hrs)</MudSelectItem>
+                        <MudSelectItem Value="1">Legacy Weekend (Fri–Sun, 23 Hrs)</MudSelectItem>
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.AddTask" OnClick="PrepareTimetableDay">Prepare this day</MudButton>
+                </div>
                 @if (_daySessions.Any())
                 {
                     <div class="timetable-payment-preview">
@@ -76,7 +83,6 @@
                         <small>after submission</small>
                     </div>
                 }
-                <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.AddTask" OnClick="PrepareTimetableDay">Prepare this day</MudButton>
             </div>
 
             @if (TimetablePlanForSelectedDate.Any())
@@ -457,8 +463,9 @@
     private List<SessionPaymentAmount> _sessionPaymentAmounts = new();
     private List<Faculty> _faculty = new();
     private List<Course> _courses = new();
-    private DateTime _weekendStart = MostRecentFriday(DateTime.Today);
+    private DateTime _weekendStart = MostRecentThursday(DateTime.Today);
     private DateTime _selectedDate = DateTime.Today;
+    private int _selectedTimetableVersion = 2; // Default: Official AY 2026-27 Sem-I
     private int _activeTab;
     private bool _logDialogVisible;
     private bool _attendanceDialogVisible;
@@ -474,9 +481,10 @@
     private DailySessionAttendanceSummary? _attendanceSession;
     private List<AttendanceStudentItem> _attendanceStudents = new();
 
-    private IEnumerable<DateTime> WeekendDates => Enumerable.Range(0, 3).Select(day => _weekendStart.AddDays(day));
+    private IEnumerable<DateTime> WeekendDates => Enumerable.Range(0, 4).Select(day => _weekendStart.AddDays(day));
     private IEnumerable<TimetablePlanItem> TimetablePlanForSelectedDate =>
-        WeekendTimetable.Where(item => item.Day == _selectedDate.DayOfWeek);
+        (_selectedTimetableVersion == 2 ? OfficialSem1Timetable : WeekendTimetable)
+            .Where(item => item.Day == _selectedDate.DayOfWeek);
     private int PresentStudentCount => _attendanceStudents.Count(student => student.IsPresent);
     private int PlannedDaySessionCount => _daySessions.Count(session => session.Status == SessionStatus.Scheduled);
     private int ConductedDaySessionCount => _daySessions.Count(session => session.Status == SessionStatus.Conducted);
@@ -494,7 +502,7 @@
     private string SubmitDayButtonLabel => !_daySessions.Any()
         ? "No classes to submit"
         : CanSubmitDay ? "Submit completed day" : "Day submitted";
-    private string WeekendLabel => $"{_weekendStart:dd MMM} – {_weekendStart.AddDays(2):dd MMM yyyy}";
+    private string WeekendLabel => $"{_weekendStart:dd MMM} – {_weekendStart.AddDays(3):dd MMM yyyy}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -508,7 +516,7 @@
     {
         _daySessions.Clear();
         _daySessions.AddRange(await SessionSvc.GetAllAsync(_selectedDate, _selectedDate));
-        var weekendSessions = await SessionSvc.GetAllAsync(_weekendStart, _weekendStart.AddDays(2));
+        var weekendSessions = await SessionSvc.GetAllAsync(_weekendStart, _weekendStart.AddDays(3));
         _weekendSessionCounts = weekendSessions
             .GroupBy(session => session.Date.Date)
             .ToDictionary(group => group.Key, group => group.Count());
@@ -529,7 +537,7 @@
 
     private async Task ShowCurrentWeekend()
     {
-        _weekendStart = MostRecentFriday(DateTime.Today);
+        _weekendStart = MostRecentThursday(DateTime.Today);
         await SetSelectedDate(WeekendDates.Contains(DateTime.Today) ? DateTime.Today : _weekendStart);
     }
 
@@ -543,7 +551,7 @@
     {
         if (!date.HasValue) return;
         _selectedDate = date.Value.Date;
-        _weekendStart = MostRecentFriday(_selectedDate);
+        _weekendStart = MostRecentThursday(_selectedDate);
         await LoadDayData();
     }
 
@@ -625,7 +633,7 @@
 
             _logDialogVisible = false;
             _selectedDate = _newSessionDate.Value.Date;
-            _weekendStart = MostRecentFriday(_selectedDate);
+            _weekendStart = MostRecentThursday(_selectedDate);
             await LoadDayData();
             Snackbar.Add(isEditing ? "Timetable class updated." : "Class recorded. Its attendance register is ready.", Severity.Success);
         }
@@ -772,6 +780,45 @@
         TimeSpan StartTime,
         TimeSpan EndTime);
 
+    private static readonly IReadOnlyList<TimetablePlanItem> OfficialSem1Timetable = new List<TimetablePlanItem>
+    {
+        // Thursday (5 Hrs)
+        new(DayOfWeek.Thursday, "CDS40020", "Advanced Cloud Computing & Data Storage", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Lecture", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Thursday, "MEC51050", "Research Methodology for Engineers", "Dr. Vitthal Gutte", "Dr. Vitthal Gutte", "Tutorial", new(13, 30, 0), new(14, 30, 0)),
+        new(DayOfWeek.Thursday, "CDS40020", "Advanced Cloud Computing & Data Storage", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Lecture", new(14, 30, 0), new(15, 30, 0)),
+        new(DayOfWeek.Thursday, "ESD10010", "Employment Skill Development", "Dr. Vitthal Gutte", "Dr. Vitthal Gutte", "Lecture", new(15, 45, 0), new(16, 45, 0)),
+        new(DayOfWeek.Thursday, "ESD10010", "Employment Skill Development", "Dr. Vitthal Gutte", "Dr. Vitthal Gutte", "Lecture", new(16, 45, 0), new(17, 45, 0)),
+
+        // Friday (8 Hrs)
+        new(DayOfWeek.Friday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(8, 30, 0), new(9, 30, 0)),
+        new(DayOfWeek.Friday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(9, 30, 0), new(10, 30, 0)),
+        new(DayOfWeek.Friday, "MEC51050", "Research Methodology for Engineers", "Dr. M. D. Hambarde", "Dr. M. D. Hambarde", "Lecture", new(10, 45, 0), new(11, 45, 0)),
+        new(DayOfWeek.Friday, "MEC51050", "Research Methodology for Engineers", "Dr. M. D. Hambarde", "Dr. M. D. Hambarde", "Lecture", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure", "Dr. Vivekanand M Bankolli / Mr. Siddu Patil", "Dr. Vivekanand M Bankolli", "Lecture", new(13, 30, 0), new(14, 30, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure", "Dr. Vivekanand M Bankolli / Mr. Siddu Patil", "Dr. Vivekanand M Bankolli", "Lecture", new(14, 30, 0), new(15, 30, 0)),
+        new(DayOfWeek.Friday, "CDS40010", "Advance Data Centre & Cloud Infrastructure", "Dr. Vivekanand M Bankolli / Mr. Siddu Patil", "Dr. Vivekanand M Bankolli", "Lecture", new(15, 45, 0), new(16, 45, 0)),
+        new(DayOfWeek.Friday, "MEC51050", "Research Methodology for Engineers", "Dr. Vitthal Gutte", "Dr. Vitthal Gutte", "Lecture", new(16, 45, 0), new(17, 45, 0)),
+
+        // Saturday (8 Hrs)
+        new(DayOfWeek.Saturday, "YOG10030", "Yoga", "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", "Mr. Shashidhar Ramesh", "Practical", new(8, 30, 0), new(9, 30, 0)),
+        new(DayOfWeek.Saturday, "PCE10040", "Scientific Studies of Mind, Matter, Spirit & Consciousness", "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", "Mr. Shashidhar Ramesh", "Lecture", new(9, 30, 0), new(10, 30, 0)),
+        new(DayOfWeek.Saturday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Tutorial", new(10, 45, 0), new(11, 45, 0)),
+        new(DayOfWeek.Saturday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Saturday, "CDS40010", "Advance Data Centre & Cloud Infrastructure Lab", "Mr. Abhishek Joshi", "Mr. Abhishek Joshi", "Practical", new(13, 30, 0), new(14, 30, 0)),
+        new(DayOfWeek.Saturday, "CDS40010", "Advance Data Centre & Cloud Infrastructure Lab", "Mr. Abhishek Joshi", "Mr. Abhishek Joshi", "Practical", new(14, 30, 0), new(15, 30, 0)),
+        new(DayOfWeek.Saturday, "CDS40030", "Project Lab-I", "Mr. Subodh B Patil / Mr. Abhishek Joshi", "Mr. Subodh B Patil", "Practical", new(15, 45, 0), new(16, 45, 0)),
+        new(DayOfWeek.Saturday, "CDS40030", "Project Lab-I", "Mr. Subodh B Patil / Mr. Abhishek Joshi", "Mr. Subodh B Patil", "Practical", new(16, 45, 0), new(17, 45, 0)),
+
+        // Sunday (7 Hrs)
+        new(DayOfWeek.Sunday, "YOG10030", "Yoga", "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", "Mr. Shashidhar Ramesh", "Practical", new(8, 30, 0), new(9, 30, 0)),
+        new(DayOfWeek.Sunday, "PCE10040", "Scientific Studies of Mind, Matter, Spirit & Consciousness", "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", "Mr. Shashidhar Ramesh", "Lecture", new(9, 30, 0), new(10, 30, 0)),
+        new(DayOfWeek.Sunday, "CDS40030", "Project Lab-I", "Mr. Subodh B Patil / Mr. Abhishek Joshi", "Mr. Subodh B Patil", "Practical", new(10, 45, 0), new(11, 45, 0)),
+        new(DayOfWeek.Sunday, "CDS40030", "Project Lab-I", "Mr. Subodh B Patil / Mr. Abhishek Joshi", "Mr. Subodh B Patil", "Practical", new(11, 45, 0), new(12, 45, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage Lab", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Practical", new(13, 30, 0), new(14, 30, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage Lab", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Practical", new(14, 30, 0), new(15, 30, 0)),
+        new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Lecture", new(15, 45, 0), new(16, 45, 0))
+    };
+
     private static readonly IReadOnlyList<TimetablePlanItem> WeekendTimetable = new List<TimetablePlanItem>
     {
         new(DayOfWeek.Friday, "MEC50010", "Advanced Mathematics", "Dr. Ganesh Birajdar", "Dr. Ganesh Birajdar", "Lecture", new(8, 30, 0), new(9, 30, 0)),
@@ -799,9 +846,9 @@
         new(DayOfWeek.Sunday, "CDS40020", "Advanced Cloud Computing & Data Storage Lab", "Mr. Vivekanand P Navadagi", "Mr. Vivekanand P Navadagi", "Practical", new(16, 45, 0), new(18, 45, 0))
     };
 
-    private static DateTime MostRecentFriday(DateTime date)
+    private static DateTime MostRecentThursday(DateTime date)
     {
-        var daysSinceFriday = ((int)date.DayOfWeek - (int)DayOfWeek.Friday + 7) % 7;
-        return date.Date.AddDays(-daysSinceFriday);
+        var daysSinceThursday = ((int)date.DayOfWeek - (int)DayOfWeek.Thursday + 7) % 7;
+        return date.Date.AddDays(-daysSinceThursday);
     }
 }

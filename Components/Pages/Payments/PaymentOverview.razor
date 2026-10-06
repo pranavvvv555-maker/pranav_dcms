@@ -113,6 +113,9 @@
 
                     <!-- Quick Presets -->
                     <div class="d-flex flex-wrap gap-1">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" OnClick="PresetSepOctCycle" Style="font-weight:700;">
+                            11 Sep – 04 Oct
+                        </MudButton>
                         <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="PresetThisWeekend">
                             Weekend
                         </MudButton>
@@ -966,6 +969,7 @@
         await LoadOverview();
     }
 
+    private async Task PresetSepOctCycle() => await SetPresetRange(new DateTime(2026, 9, 11), new DateTime(2026, 10, 4));
     private async Task PresetThisWeekend() => await SetPresetRange(WeekendStart, WeekendEnd);
     private async Task PresetFirstHalf() => await SetPresetRange(new DateTime(_referenceDate.Year, _referenceDate.Month, 1), new DateTime(_referenceDate.Year, _referenceDate.Month, 15));
     private async Task PresetSecondHalf() => await SetPresetRange(new DateTime(_referenceDate.Year, _referenceDate.Month, 16), MonthEnd);
