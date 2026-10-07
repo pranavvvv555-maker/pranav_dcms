@@ -153,14 +153,26 @@
                     @foreach (var plan in TimetablePlanForSelectedDate)
                     {
                         var session = FindPlannedSession(plan);
-                        <MudPaper Elevation="0" Class="timetable-plan-card">
+                        var isCancelled = session?.Status == SessionStatus.Cancelled;
+                        var isConducted = session?.Status == SessionStatus.Conducted;
+                        var isScheduled = session?.Status == SessionStatus.Scheduled;
+
+                        <MudPaper Elevation="0" Class="@($"timetable-plan-card {(isCancelled ? "timetable-plan-card--cancelled" : "")}")"
+                                  Style="@(isCancelled ? "border: 1.5px dashed #fca5a5 !important; background: #fff8f8 !important; opacity: 0.9;" : "")">
                             <div class="timetable-plan-card__topline">
                                 <span class="@($"type-pill type-pill--{(session?.SessionType ?? plan.SessionType).ToLowerInvariant()}")">@(session?.SessionType ?? plan.SessionType)</span>
                                 @if (session is null)
                                 {
                                     <span class="attendance-status">Not prepared</span>
                                 }
-                                else if (session.Status == SessionStatus.Conducted)
+                                else if (isCancelled)
+                                {
+                                    <span class="attendance-status" style="background:#fee2e2; color:#b91c1c; font-weight:800; border:1px solid #fecaca;">
+                                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Size="Size.Small" Style="font-size:0.8rem; vertical-align:text-bottom; margin-right:2px;" />
+                                        Removed
+                                    </span>
+                                }
+                                else if (isConducted)
                                 {
                                     <span class="attendance-status attendance-status--done">Conducted</span>
                                 }
@@ -169,20 +181,67 @@
                                     <span class="attendance-status">Planned</span>
                                 }
                             </div>
-                            <MudText Typo="Typo.subtitle1">@(session?.Course.CourseName ?? plan.CourseName)</MudText>
-                            <MudText Typo="Typo.body2">@(session?.Faculty.FullName ?? plan.FacultyLabel)</MudText>
+                            <MudText Typo="Typo.subtitle1" Style="@(isCancelled ? "text-decoration:line-through; color:#94a3b8;" : "")">
+                                @(session?.Course.CourseName ?? plan.CourseName)
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="@(isCancelled ? "color:#94a3b8;" : "")">
+                                @(session?.Faculty.FullName ?? plan.FacultyLabel)
+                            </MudText>
                             <div class="timetable-plan-card__footer">
                                 <div>
                                     <span>@FormatTime(plan.StartTime) – @FormatTime(plan.EndTime)</span>
                                     @if (session is not null)
                                     {
-                                        <small class="timetable-plan-card__payment">₹@GetSessionPaymentAmount(session.Id).ToString("N0") payment</small>
+                                        if (isCancelled)
+                                        {
+                                            <small style="color:#ef4444; font-weight:700;">₹0 (Removed from payment)</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="timetable-plan-card__payment">₹@GetSessionPaymentAmount(session.Id).ToString("N0") payment</small>
+                                        }
                                     }
                                 </div>
-                                @if (session is not null)
-                                {
-                                    <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Edit" OnClick="@(() => OpenEditSession(session))">Edit</MudButton>
-                                }
+                                <div class="d-flex align-center gap-1">
+                                    @if (session is not null && !isCancelled)
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.Edit"
+                                                   OnClick="@(() => OpenEditSession(session))">
+                                            Edit
+                                        </MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.DeleteOutline"
+                                                   OnClick="@(() => OpenRemoveSpecificClassDialog(session, plan))"
+                                                   Style="font-weight:700; text-transform:none;">
+                                            Remove
+                                        </MudButton>
+                                    }
+                                    else if (isCancelled)
+                                    {
+                                        <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.Restore"
+                                                   OnClick="@(() => RestoreSpecificClass(session!, plan))"
+                                                   Style="font-weight:700; text-transform:none; font-size:0.75rem;">
+                                            Restore
+                                        </MudButton>
+                                    }
+                                    else
+                                    {
+                                        <MudButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.Add"
+                                                   OnClick="@(() => PrepareSingleClass(plan))"
+                                                   Style="font-weight:700; text-transform:none;">
+                                            Prepare
+                                        </MudButton>
+                                        <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small"
+                                                   StartIcon="@Icons.Material.Filled.RemoveCircleOutline"
+                                                   OnClick="@(() => ExcludeSingleClass(plan))"
+                                                   Style="font-weight:700; text-transform:none;">
+                                            Remove / Skip
+                                        </MudButton>
+                                    }
+                                </div>
                             </div>
                         </MudPaper>
                     }
@@ -522,6 +581,13 @@
         <MudTextField @bind-Value="_newSessionNotes" Label="Notes (optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" Class="mt-2" />
     </DialogContent>
     <DialogActions>
+        @if (_editingSessionId.HasValue)
+        {
+            <MudButton Variant="Variant.Text" Color="Color.Error" StartIcon="@Icons.Material.Filled.DeleteOutline"
+                       OnClick="DeleteSessionFromEditDialog" Style="margin-right:auto; font-weight:700; text-transform:none;">
+                Remove this class
+            </MudButton>
+        }
         <MudButton OnClick="@(() => _logDialogVisible = false)">Cancel</MudButton>
         <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="SaveSession">@(_editingSessionId.HasValue ? "Save changes" : "Save class")</MudButton>
     </DialogActions>
@@ -801,6 +867,68 @@
     </DialogActions>
 </MudDialog>
 
+<MudDialog @bind-Visible="_removeSessionDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <div style="background:#fee2e2; border-radius:10px; width:38px; height:38px; display:grid; place-items:center;">
+                <MudIcon Icon="@Icons.Material.Filled.DeleteOutline" Style="color:#dc2626;" />
+            </div>
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight:800; color:#0f172a;">Remove Lecture / Practical</MudText>
+                <div style="font-size:0.8rem; color:#64748b;">Schedule & Payment Adjustment (@_selectedDate.ToString("dd MMM yyyy"))</div>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (_sessionToRemove is not null || _planToRemove is not null)
+        {
+            var title = _sessionToRemove?.Course?.CourseName ?? _planToRemove?.CourseName ?? "";
+            var courseCode = _sessionToRemove?.Course?.CourseCode ?? _planToRemove?.CourseCode ?? "";
+            var fac = _sessionToRemove?.Faculty?.FullName ?? _planToRemove?.FacultyLabel ?? "";
+            var type = _sessionToRemove?.SessionType ?? _planToRemove?.SessionType ?? "Class";
+            var start = _sessionToRemove?.ActualStartTime ?? _planToRemove?.StartTime ?? TimeSpan.Zero;
+            var end = _sessionToRemove?.ActualEndTime ?? _planToRemove?.EndTime ?? TimeSpan.Zero;
+            var pay = _removeImpactAmount > 0 ? _removeImpactAmount : 1200m;
+
+            <div class="d-flex flex-column gap-3 pt-1">
+                <MudPaper Elevation="0" Class="p-3" Style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px;">
+                    <div class="d-flex align-center justify-space-between mb-1">
+                        <span class="@($"type-pill type-pill--{type.ToLowerInvariant()}")">@type</span>
+                        <span style="font-weight:800; color:#b91c1c; font-size:0.88rem;">₹@pay.ToString("N0") Payment</span>
+                    </div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:800; color:#0f172a; margin-top:4px;">@title</MudText>
+                    <div style="font-size:0.82rem; color:#475569;">Professor: <b>@fac</b></div>
+                    <div style="font-size:0.8rem; color:#64748b; margin-top:2px;">
+                        Timing: <b>@FormatTime(start) – @FormatTime(end)</b> (@courseCode)
+                    </div>
+                </MudPaper>
+
+                <MudAlert Severity="Severity.Warning" Dense="true">
+                    Removing this class will deduct <b>₹@pay.ToString("N0")</b> from today's payment. It will not be counted in the faculty's payment overview or monthly payroll.
+                </MudAlert>
+
+                <div class="p-2" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px;">
+                    <MudCheckBox @bind-Value="_permanentlyDeleteSession" Color="Color.Error" Dense="true">
+                        <span style="font-size:0.82rem; color:#475569;">
+                            Permanently delete from database (otherwise kept as Cancelled for 1-click restore)
+                        </span>
+                    </MudCheckBox>
+                </div>
+            </div>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="@(() => _removeSessionDialogVisible = false)">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.Delete"
+                   OnClick="ConfirmRemoveSpecificClass"
+                   Style="font-weight:800; background:#dc2626 !important; color:#fff !important; text-transform:none;">
+            Confirm & Remove Class
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private readonly List<Session> _daySessions = new();
     private Dictionary<DateTime, int> _weekendSessionCounts = new();
@@ -839,6 +967,12 @@
     private bool _clearDayClassesOnHoliday = true;
     private bool _removeOnlineClassesOnHoliday = false;
     private bool _markAsExcludedNonTeachingDay = false;
+
+    private bool _removeSessionDialogVisible;
+    private Session? _sessionToRemove;
+    private TimetablePlanItem? _planToRemove;
+    private decimal _removeImpactAmount;
+    private bool _permanentlyDeleteSession;
 
     private IEnumerable<DateTime> WeekendDates => Enumerable.Range(0, 4).Select(day => _weekendStart.AddDays(day));
     private IEnumerable<TimetablePlanItem> TimetablePlanForSelectedDate =>
@@ -893,6 +1027,7 @@
         _daySessions.AddRange(await SessionSvc.GetAllAsync(_selectedDate, _selectedDate));
         var weekendSessions = await SessionSvc.GetAllAsync(_weekendStart, _weekendStart.AddDays(3));
         _weekendSessionCounts = weekendSessions
+            .Where(session => session.Status != SessionStatus.Cancelled)
             .GroupBy(session => session.Date.Date)
             .ToDictionary(group => group.Key, group => group.Count());
         _attendanceSummaries = await AttendanceSvc.GetDailySessionSummariesAsync(_selectedDate);
@@ -1110,9 +1245,7 @@
             var course = _courses.FirstOrDefault(item => string.Equals(item.CourseCode, plannedClass.CourseCode, StringComparison.OrdinalIgnoreCase));
             var faculty = _faculty.FirstOrDefault(item => string.Equals(item.FullName, plannedClass.DefaultFacultyName, StringComparison.OrdinalIgnoreCase) && item.IsActive)
                 ?? _faculty.FirstOrDefault(item => item.FullName.Contains(plannedClass.DefaultFacultyName.Split(' ').Last(), StringComparison.OrdinalIgnoreCase) && item.IsActive);
-            var alreadyPrepared = _daySessions.Any(session =>
-                session.ActualStartTime == plannedClass.StartTime &&
-                session.ActualEndTime == plannedClass.EndTime);
+            var alreadyPrepared = FindPlannedSession(plannedClass) != null;
 
             if (course is null || faculty is null || alreadyPrepared) continue;
 
@@ -1132,6 +1265,167 @@
 
         await LoadDayData();
         Snackbar.Add(added > 0 ? $"{added} timetable classes prepared for {_selectedDate:dddd, dd MMM}." : "This day's classes are already prepared.", added > 0 ? Severity.Success : Severity.Info);
+    }
+
+    private void OpenRemoveSpecificClassDialog(Session session, TimetablePlanItem plan)
+    {
+        _sessionToRemove = session;
+        _planToRemove = plan;
+        _removeImpactAmount = GetSessionPaymentAmount(session.Id);
+        _permanentlyDeleteSession = false;
+        _removeSessionDialogVisible = true;
+    }
+
+    private async Task ConfirmRemoveSpecificClass()
+    {
+        if (_sessionToRemove is null && _planToRemove is null) return;
+        try
+        {
+            var courseName = _sessionToRemove?.Course?.CourseName ?? _planToRemove?.CourseName ?? "Class";
+            var type = _sessionToRemove?.SessionType ?? _planToRemove?.SessionType ?? "Class";
+
+            if (_sessionToRemove is not null)
+            {
+                if (_permanentlyDeleteSession)
+                {
+                    await SessionSvc.DeleteAsync(_sessionToRemove.Id);
+                }
+                else
+                {
+                    _sessionToRemove.Status = SessionStatus.Cancelled;
+                    _sessionToRemove.CancellationReason = "Manually removed from daily schedule by administrator";
+                    await SessionSvc.UpdateAsync(_sessionToRemove);
+                }
+            }
+            else if (_planToRemove is not null)
+            {
+                await ExcludeSingleClass(_planToRemove);
+            }
+
+            _removeSessionDialogVisible = false;
+            await LoadDayData();
+            Snackbar.Add($"Removed {courseName} ({type}). Amount deducted from day calculation.", Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task RestoreSpecificClass(Session session, TimetablePlanItem plan)
+    {
+        try
+        {
+            var hasConductedOnDay = _daySessions.Any(s => s.Id != session.Id && s.Status == SessionStatus.Conducted);
+            session.Status = hasConductedOnDay ? SessionStatus.Conducted : SessionStatus.Scheduled;
+            session.CancellationReason = null;
+            if (hasConductedOnDay)
+            {
+                session.IsApproved = true;
+                session.ApprovedBy = "Administrator";
+                session.ApprovedAt = DateTime.UtcNow;
+            }
+            await SessionSvc.UpdateAsync(session);
+            await LoadDayData();
+            Snackbar.Add($"Restored {session.Course?.CourseName ?? plan.CourseName} to today's schedule.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ExcludeSingleClass(TimetablePlanItem plan)
+    {
+        try
+        {
+            var course = _courses.FirstOrDefault(item => string.Equals(item.CourseCode, plan.CourseCode, StringComparison.OrdinalIgnoreCase));
+            var faculty = _faculty.FirstOrDefault(item => string.Equals(item.FullName, plan.DefaultFacultyName, StringComparison.OrdinalIgnoreCase) && item.IsActive)
+                ?? _faculty.FirstOrDefault(item => item.FullName.Contains(plan.DefaultFacultyName.Split(' ').Last(), StringComparison.OrdinalIgnoreCase) && item.IsActive);
+
+            if (course is null || faculty is null)
+            {
+                Snackbar.Add("Could not identify course or faculty to exclude.", Severity.Warning);
+                return;
+            }
+
+            var cancelledSession = new Session
+            {
+                Date = _selectedDate,
+                FacultyId = faculty.Id,
+                CourseId = course.Id,
+                ActualStartTime = plan.StartTime,
+                ActualEndTime = plan.EndTime,
+                DurationHours = (decimal)(plan.EndTime - plan.StartTime).TotalHours,
+                SessionType = plan.SessionType,
+                Status = SessionStatus.Cancelled,
+                CancellationReason = "Excluded prior to day preparation",
+                Notes = "Manually excluded by administrator",
+                LoggedBy = "Administrator"
+            };
+
+            await SessionSvc.ScheduleSessionAsync(cancelledSession);
+            await LoadDayData();
+            Snackbar.Add($"Excluded {plan.CourseName} ({plan.SessionType}) from today's plan.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task PrepareSingleClass(TimetablePlanItem plan)
+    {
+        try
+        {
+            var course = _courses.FirstOrDefault(item => string.Equals(item.CourseCode, plan.CourseCode, StringComparison.OrdinalIgnoreCase));
+            var faculty = _faculty.FirstOrDefault(item => string.Equals(item.FullName, plan.DefaultFacultyName, StringComparison.OrdinalIgnoreCase) && item.IsActive)
+                ?? _faculty.FirstOrDefault(item => item.FullName.Contains(plan.DefaultFacultyName.Split(' ').Last(), StringComparison.OrdinalIgnoreCase) && item.IsActive);
+
+            if (course is null || faculty is null)
+            {
+                Snackbar.Add("Could not identify course or faculty to prepare.", Severity.Warning);
+                return;
+            }
+
+            await SessionSvc.ScheduleSessionAsync(new Session
+            {
+                Date = _selectedDate,
+                FacultyId = faculty.Id,
+                CourseId = course.Id,
+                ActualStartTime = plan.StartTime,
+                ActualEndTime = plan.EndTime,
+                DurationHours = (decimal)(plan.EndTime - plan.StartTime).TotalHours,
+                SessionType = plan.SessionType,
+                Notes = $"Prepared from the {(_selectedTimetableVersion == 1 ? "Legacy Weekend" : "Official Academic")} timetable.",
+                LoggedBy = "Administrator"
+            });
+            await LoadDayData();
+            Snackbar.Add($"Prepared {plan.CourseName} ({plan.SessionType}) for {_selectedDate:dd MMM}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task DeleteSessionFromEditDialog()
+    {
+        if (!_editingSessionId.HasValue) return;
+        var session = _daySessions.FirstOrDefault(s => s.Id == _editingSessionId.Value);
+        if (session != null)
+        {
+            session.Status = SessionStatus.Cancelled;
+            session.CancellationReason = "Manually removed by administrator via edit dialog";
+            await SessionSvc.UpdateAsync(session);
+        }
+        else
+        {
+            await SessionSvc.DeleteAsync(_editingSessionId.Value);
+        }
+        _logDialogVisible = false;
+        await LoadDayData();
+        Snackbar.Add("Class removed from schedule. Total payment adjusted.", Severity.Warning);
     }
 
     private async Task DeleteSession(int sessionId)

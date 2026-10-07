@@ -35,9 +35,10 @@ public class SessionService(AppDbContext db)
 
     private async Task ValidateSessionAsync(Session session)
     {
+        if (session.Status == SessionStatus.Cancelled) return;
         if (session.ActualStartTime < TimeSpan.Zero || session.ActualEndTime > TimeSpan.FromDays(1) || session.ActualEndTime <= session.ActualStartTime)
             throw new InvalidOperationException("End time must be later than start time within the same day.");
-        var candidates = await db.Sessions.Where(s => s.Id != session.Id && s.Date.Date == session.Date.Date && (s.FacultyId == session.FacultyId || s.CourseId == session.CourseId)).ToListAsync();
+        var candidates = await db.Sessions.Where(s => s.Id != session.Id && s.Status != SessionStatus.Cancelled && s.Date.Date == session.Date.Date && (s.FacultyId == session.FacultyId || s.CourseId == session.CourseId)).ToListAsync();
         if (candidates.Any(s => s.ActualStartTime < session.ActualEndTime && s.ActualEndTime > session.ActualStartTime))
             throw new InvalidOperationException("This faculty member or course already has an overlapping session.");
     }
