@@ -198,7 +198,7 @@
             <div>
                 <div class="payover-kpi__value">₹@TotalMonthPay.ToString("N0")</div>
                 <div class="payover-kpi__caption">
-                    <b>@TotalMonthLectures</b> lectures · <b>@TotalMonthPracticals</b> practicals in @MonthLabel
+                    <b>@TotalMonthLectures.ToString("0.#")</b> lectures · <b>@TotalMonthPracticals.ToString("0.#")</b> practicals in @MonthLabel
                 </div>
             </div>
         </div>
@@ -210,9 +210,9 @@
                 <span class="payover-kpi__icon"><MudIcon Icon="@Icons.Material.Filled.MenuBook" /></span>
             </div>
             <div>
-                <div class="payover-kpi__value">@(TotalMonthLectures + TotalMonthPracticals) <small style="font-size:1.1rem; color:#786134;">classes</small></div>
+                <div class="payover-kpi__value">@((TotalMonthLectures + TotalMonthPracticals).ToString("0.#")) <small style="font-size:1.1rem; color:#786134;">classes</small></div>
                 <div class="payover-kpi__caption">
-                    <b>@TotalMonthLectures</b> Theory Lectures · <b>@TotalMonthPracticals</b> Practical Labs
+                    <b>@TotalMonthLectures.ToString("0.#")</b> Theory Lectures · <b>@TotalMonthPracticals.ToString("0.#")</b> Practical Labs
                 </div>
             </div>
         </div>
@@ -315,7 +315,7 @@
                                 @if (context.Item.WeeklyLectureCount > 0 || context.Item.WeeklyPracticalCount > 0)
                                 {
                                     <div class="class-mix-badge class-mix-badge--active">
-                                        <b>@context.Item.WeeklyLectureCount</b> L · <b>@context.Item.WeeklyPracticalCount</b> P
+                                        <b>@context.Item.WeeklyLectureCount.ToString("0.#")</b> L · <b>@context.Item.WeeklyPracticalCount.ToString("0.#")</b> P
                                     </div>
                                 }
                                 else
@@ -347,7 +347,7 @@
                                 @if (context.Item.MonthlyLectureCount > 0 || context.Item.MonthlyPracticalCount > 0)
                                 {
                                     <div class="class-mix-badge class-mix-badge--active" style="background:#eaf4fd; border-color:#bedcf7;">
-                                        <b>@context.Item.MonthlyLectureCount</b> Lectures · <b>@context.Item.MonthlyPracticalCount</b> Practicals
+                                        <b>@context.Item.MonthlyLectureCount.ToString("0.#")</b> Lectures · <b>@context.Item.MonthlyPracticalCount.ToString("0.#")</b> Practicals
                                     </div>
                                 }
                                 else
@@ -401,7 +401,7 @@
                         Aggregated Cohort Remuneration (@MonthLabel)
                     </MudText>
                     <MudText Typo="Typo.caption" Style="color:#60758b;">
-                        Calculated from @FilteredFaculty.Count() professors · Total @FilteredMonthLectures Lectures & @FilteredMonthPracticals Practicals
+                        Calculated from @FilteredFaculty.Count() professors · Total @FilteredMonthLectures.ToString("0.#") Lectures & @FilteredMonthPracticals.ToString("0.#") Practicals
                     </MudText>
                 </div>
                 <div class="payover-table-footer__totals">
@@ -518,7 +518,7 @@
                         <div class="breakdown-summary-banner" style="background:#f0f7fd; border-color:#bddcf6;">
                             <div>
                                 <span style="color:#1d5b91;">Monthly Compensation Formula (@MonthLabel)</span>
-                                <em style="color:#1e5ca8;">(@_selectedFaculty.MonthlyLectureCount lectures × ₹@_selectedFaculty.LectureRate.ToString("N0")) + (@_selectedFaculty.MonthlyPracticalCount practicals × ₹@_selectedFaculty.PracticalRate.ToString("N0"))</em>
+                                <em style="color:#1e5ca8;">(@_selectedFaculty.MonthlyLectureCount.ToString("0.#") lectures × ₹@_selectedFaculty.LectureRate.ToString("N0")) + (@_selectedFaculty.MonthlyPracticalCount.ToString("0.#") practicals × ₹@_selectedFaculty.PracticalRate.ToString("N0"))</em>
                             </div>
                             <div>
                                 <span style="color:#1d5b91;">Month Total</span>
@@ -583,7 +583,7 @@
                         <div class="breakdown-summary-banner">
                             <div>
                                 <span>Weekend Compensation Formula</span>
-                                <em>(@_selectedFaculty.WeeklyLectureCount lectures × ₹@_selectedFaculty.LectureRate.ToString("N0")) + (@_selectedFaculty.WeeklyPracticalCount practicals × ₹@_selectedFaculty.PracticalRate.ToString("N0"))</em>
+                                <em>(@_selectedFaculty.WeeklyLectureCount.ToString("0.#") lectures × ₹@_selectedFaculty.LectureRate.ToString("N0")) + (@_selectedFaculty.WeeklyPracticalCount.ToString("0.#") practicals × ₹@_selectedFaculty.PracticalRate.ToString("N0"))</em>
                             </div>
                             <div>
                                 <span>Weekend Total</span>
@@ -1050,10 +1050,10 @@
     // Totals for all faculty
     private decimal TotalWeekendPay => _paymentOverview.Sum(f => f.WeeklyPayableAmount);
     private decimal TotalMonthPay => _paymentOverview.Sum(f => f.MonthlyPayableAmount);
-    private int TotalWeekendLectures => _paymentOverview.Sum(f => f.WeeklyLectureCount);
-    private int TotalWeekendPracticals => _paymentOverview.Sum(f => f.WeeklyPracticalCount);
-    private int TotalMonthLectures => _paymentOverview.Sum(f => f.MonthlyLectureCount);
-    private int TotalMonthPracticals => _paymentOverview.Sum(f => f.MonthlyPracticalCount);
+    private decimal TotalWeekendLectures => _paymentOverview.Sum(f => f.WeeklyLectureCount);
+    private decimal TotalWeekendPracticals => _paymentOverview.Sum(f => f.WeeklyPracticalCount);
+    private decimal TotalMonthLectures => _paymentOverview.Sum(f => f.MonthlyLectureCount);
+    private decimal TotalMonthPracticals => _paymentOverview.Sum(f => f.MonthlyPracticalCount);
     private int ActiveMonthFacultyCount => _paymentOverview.Count(f => f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0 || f.MonthlyPracticalCount > 0);
     private int NirvaaActiveMonthCount => _paymentOverview.Count(f => f.Organization == "NIRVAA" && (f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0));
     private int MitActiveMonthCount => _paymentOverview.Count(f => f.Organization == "MIT-WPU" && (f.MonthlyPayableAmount > 0 || f.MonthlyLectureCount > 0));
@@ -1061,8 +1061,8 @@
     // Totals for filtered list
     private decimal FilteredWeekendPay => FilteredFaculty.Sum(f => f.WeeklyPayableAmount);
     private decimal FilteredMonthPay => FilteredFaculty.Sum(f => f.MonthlyPayableAmount);
-    private int FilteredMonthLectures => FilteredFaculty.Sum(f => f.MonthlyLectureCount);
-    private int FilteredMonthPracticals => FilteredFaculty.Sum(f => f.MonthlyPracticalCount);
+    private decimal FilteredMonthLectures => FilteredFaculty.Sum(f => f.MonthlyLectureCount);
+    private decimal FilteredMonthPracticals => FilteredFaculty.Sum(f => f.MonthlyPracticalCount);
 
     protected override async Task OnInitializedAsync()
     {

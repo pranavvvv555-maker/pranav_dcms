@@ -900,17 +900,6 @@ public static class SeedData
             ? await db.PaymentLineItems.Where(l => l.PaymentPeriodId == period.Id).ToListAsync()
             : new List<PaymentLineItem>();
 
-        if (existingSessions.Count == 83 && existingSessions.Sum(s => s.DurationHours) == 83.0m && existingLineItems.Any() && existingLineItems.Sum(l => l.TotalHours) == 83.0m)
-        {
-            return;
-        }
-
-        if (existingSessions.Any())
-        {
-            db.Sessions.RemoveRange(existingSessions);
-            await db.SaveChangesAsync();
-        }
-
         var courses = await db.Courses.ToListAsync();
         var faculties = await db.Faculties.ToListAsync();
 
@@ -922,6 +911,23 @@ public static class SeedData
         var birajdar = faculties.FirstOrDefault(f => f.FullName.Contains("Birajdar"));
         var bankolli = faculties.FirstOrDefault(f => f.FullName.Contains("Bankolli"));
         var joshi = faculties.FirstOrDefault(f => f.FullName.Contains("Abhishek"));
+
+        var hambardeItem = existingLineItems.FirstOrDefault(l => hambarde != null && l.FacultyId == hambarde.Id);
+        var gutteItem = existingLineItems.FirstOrDefault(l => gutte != null && l.FacultyId == gutte.Id);
+
+        if (existingSessions.Count == 83 && existingSessions.Sum(s => s.DurationHours) == 83.0m
+            && existingLineItems.Any() && existingLineItems.Sum(l => l.TotalHours) == 83.0m
+            && hambardeItem != null && hambardeItem.TotalHours == 3.5m
+            && gutteItem != null && gutteItem.TotalHours == 9.5m)
+        {
+            return;
+        }
+
+        if (existingSessions.Any())
+        {
+            db.Sessions.RemoveRange(existingSessions);
+            await db.SaveChangesAsync();
+        }
 
         var cds40010 = courses.FirstOrDefault(c => c.CourseCode == "CDS40010");
         var cds40020 = courses.FirstOrDefault(c => c.CourseCode == "CDS40020");
@@ -1084,36 +1090,104 @@ public static class SeedData
             await db.SaveChangesAsync();
         }
 
-        var conducted = await db.Sessions
+        var conductedAll = await db.Sessions
             .Where(s => s.Date >= startDate && s.Date <= endDate && s.Status == SessionStatus.Conducted && s.IsApproved)
-            .GroupBy(s => s.FacultyId)
-            .Select(g => new
-            {
-                FacultyId = g.Key,
-                LecCount = g.Count(s => s.SessionType == "Lecture" || s.SessionType == "Tutorial"),
-                PracCount = g.Count(s => s.SessionType != "Lecture" && s.SessionType != "Tutorial"),
-                TotHours = g.Sum(s => s.DurationHours)
-            })
+            .Include(s => s.Course)
             .ToListAsync();
 
-        foreach (var item in conducted)
+        var rmSessions = conductedAll
+            .Where(s => (s.FacultyId == hambarde?.Id || s.FacultyId == gutte?.Id)
+                && (s.Course?.CourseCode == "MEC51050" || s.Course?.CourseName?.Contains("Research Methodology", StringComparison.OrdinalIgnoreCase) == true))
+            .ToList();
+
+        var totalRmHours = rmSessions.Sum(s => s.DurationHours); // 7.0m
+        var halfRmHours = totalRmHours * 0.5m; // 3.5m
+
+        var conductedByFaculty = conductedAll
+            .GroupBy(s => s.FacultyId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var allFacultyIds = faculties.Where(f => f.IsActive).Select(f => f.Id).ToList();
+
+        foreach (var facId in allFacultyIds)
         {
-            var gross = item.TotHours * 1200.0m;
-            db.PaymentLineItems.Add(new PaymentLineItem
+            conductedByFaculty.TryGetValue(facId, out var fSessions);
+            fSessions ??= new List<Session>();
+
+            if (facId == hambarde?.Id)
             {
-                PaymentPeriodId = period.Id,
-                FacultyId = item.FacultyId,
-                TotalHours = item.TotHours,
-                HourlyRate = 1200.0m,
-                GrossAmount = gross,
-                Deductions = 0m,
-                NetPayable = gross,
-                LectureCount = item.LecCount,
-                LectureRate = 1200.0m,
-                PracticalCount = item.PracCount,
-                PracticalRate = 1200.0m,
-                Notes = "Regular teaching honorarium (Adjusted for holidays & substitution)"
-            });
+                var nonRm = fSessions.Where(s => !rmSessions.Contains(s)).ToList();
+                var totHours = nonRm.Sum(s => s.DurationHours) + halfRmHours; // 3.5m
+                if (totHours > 0)
+                {
+                    var gross = totHours * 1200.0m;
+                    db.PaymentLineItems.Add(new PaymentLineItem
+                    {
+                        PaymentPeriodId = period.Id,
+                        FacultyId = facId,
+                        TotalHours = totHours,
+                        HourlyRate = 1200.0m,
+                        GrossAmount = gross,
+                        Deductions = 0m,
+                        NetPayable = gross,
+                        LectureCount = (int)Math.Round(totHours),
+                        LectureRate = 1200.0m,
+                        PracticalCount = 0,
+                        PracticalRate = 1200.0m,
+                        Notes = $"Research Methodology (MEC51050) - 50% Co-Teaching Allocation ({halfRmHours:0.#} hrs)"
+                    });
+                }
+            }
+            else if (facId == gutte?.Id)
+            {
+                var nonRm = fSessions.Where(s => !rmSessions.Contains(s)).ToList();
+                var nonRmHours = nonRm.Sum(s => s.DurationHours); // 6.0m ESD
+                var totHours = nonRmHours + halfRmHours; // 9.5m
+                if (totHours > 0)
+                {
+                    var gross = totHours * 1200.0m;
+                    db.PaymentLineItems.Add(new PaymentLineItem
+                    {
+                        PaymentPeriodId = period.Id,
+                        FacultyId = facId,
+                        TotalHours = totHours,
+                        HourlyRate = 1200.0m,
+                        GrossAmount = gross,
+                        Deductions = 0m,
+                        NetPayable = gross,
+                        LectureCount = (int)Math.Round(totHours),
+                        LectureRate = 1200.0m,
+                        PracticalCount = 0,
+                        PracticalRate = 1200.0m,
+                        Notes = $"ESD ({nonRmHours:0.#} hrs) + RM Co-Teaching 50% Allocation ({halfRmHours:0.#} hrs)"
+                    });
+                }
+            }
+            else
+            {
+                var totHours = fSessions.Sum(s => s.DurationHours);
+                if (totHours > 0)
+                {
+                    var lecCount = fSessions.Count(s => s.SessionType == "Lecture" || s.SessionType == "Tutorial");
+                    var pracCount = fSessions.Count - lecCount;
+                    var gross = totHours * 1200.0m;
+                    db.PaymentLineItems.Add(new PaymentLineItem
+                    {
+                        PaymentPeriodId = period.Id,
+                        FacultyId = facId,
+                        TotalHours = totHours,
+                        HourlyRate = 1200.0m,
+                        GrossAmount = gross,
+                        Deductions = 0m,
+                        NetPayable = gross,
+                        LectureCount = lecCount,
+                        LectureRate = 1200.0m,
+                        PracticalCount = pracCount,
+                        PracticalRate = 1200.0m,
+                        Notes = "Regular teaching honorarium (Adjusted for holidays & substitution)"
+                    });
+                }
+            }
         }
         await db.SaveChangesAsync();
     }

@@ -300,14 +300,14 @@
                 <MudItem xs="12" sm="4">
                     <div class="professor-payment-stat professor-payment-stat--due">
                         <span>Lectures done</span>
-                        <strong>@PreviewLectureCount</strong>
+                        <strong>@PreviewLectureCount.ToString("0.#")</strong>
                         <small>This month</small>
                     </div>
                 </MudItem>
                 <MudItem xs="12" sm="4">
                     <div class="professor-payment-stat professor-payment-stat--paid">
                         <span>Practicals done</span>
-                        <strong>@PreviewPracticalCount</strong>
+                        <strong>@PreviewPracticalCount.ToString("0.#")</strong>
                         <small>This month</small>
                     </div>
                 </MudItem>
@@ -318,7 +318,7 @@
                     <Columns>
                         <PropertyColumn Property="x => x.FacultyName" Title="Professor" />
                         <TemplateColumn Title="Classes done">
-                            <CellTemplate><span class="class-count"><b>@context.Item.LectureCount</b> lectures · <b>@context.Item.PracticalCount</b> practicals</span></CellTemplate>
+                            <CellTemplate><span class="class-count"><b>@context.Item.LectureCount.ToString("0.#")</b> lectures · <b>@context.Item.PracticalCount.ToString("0.#")</b> practicals</span></CellTemplate>
                         </TemplateColumn>
                         <TemplateColumn Title="Fees">
                             <CellTemplate>
@@ -492,8 +492,8 @@
     private int UnpaidProfessorCount => PayableLineItems.Count(item => !item.IsPaid);
     private bool CanMarkIndividualPayments => _selectedPeriod?.Status is PaymentPeriodStatus.Approved or PaymentPeriodStatus.Paid;
     private decimal PreviewPaymentAmount => _monthlyPreview.Sum(item => item.PayableAmount);
-    private int PreviewLectureCount => _monthlyPreview.Sum(item => item.LectureCount);
-    private int PreviewPracticalCount => _monthlyPreview.Sum(item => item.PracticalCount);
+    private decimal PreviewLectureCount => _monthlyPreview.Sum(item => item.LectureCount);
+    private decimal PreviewPracticalCount => _monthlyPreview.Sum(item => item.PracticalCount);
     private decimal TimetableForecastAmount => _timetableForecast.Sum(item => item.ExpectedAmount);
     private int TimetableForecastLectures => _timetableForecast.Sum(item => item.MonthlyLectures);
     private int TimetableForecastPracticals => _timetableForecast.Sum(item => item.MonthlyPracticals);

@@ -50,19 +50,33 @@ public class PaymentService(AppDbContext db)
             .OrderBy(f => f.FullName)
             .ToListAsync();
 
+        var hambardeFaculty = payableFaculty.FirstOrDefault(f => f.FullName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase));
+        var gutteFaculty = payableFaculty.FirstOrDefault(f => f.FullName.Contains("Gutte", StringComparison.OrdinalIgnoreCase));
+
+        var allPeriodSessions = await db.Sessions
+            .Where(s => s.Date >= period.StartDate
+                && s.Date <= period.EndDate
+                && s.Status == SessionStatus.Conducted
+                && s.IsApproved)
+            .Include(s => s.Course)
+            .ToListAsync();
+
+        bool IsRm(Session s) =>
+            s.Course?.CourseCode == "MEC51050" || s.Course?.CourseName?.Contains("Research Methodology", StringComparison.OrdinalIgnoreCase) == true;
+
+        var periodRmSessions = allPeriodSessions
+            .Where(s => (s.FacultyId == hambardeFaculty?.Id || s.FacultyId == gutteFaculty?.Id) && IsRm(s))
+            .ToList();
+
+        var halfRmHours = periodRmSessions.Sum(s => s.DurationHours) * 0.5m;
+        var halfRmLectures = periodRmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial") * 0.5m;
+        var halfRmPracticals = (periodRmSessions.Count - periodRmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial")) * 0.5m;
+
         foreach (var faculty in payableFaculty)
         {
-            var conductedSessions = await db.Sessions
-                .Where(s => s.FacultyId == faculty.Id
-                    && s.Date >= period.StartDate
-                    && s.Date <= period.EndDate
-                    && s.Status == SessionStatus.Conducted
-                    && s.IsApproved)
-                .ToListAsync();
-
-            var lectureCount = conductedSessions.Count(s => s.SessionType is "Lecture" or "Tutorial");
-            var practicalCount = conductedSessions.Count - lectureCount;
-            var totalHours = conductedSessions.Sum(s => s.DurationHours);
+            var conductedSessions = allPeriodSessions
+                .Where(s => s.FacultyId == faculty.Id)
+                .ToList();
 
             var today = DateTime.Today;
             var rate = await db.FacultyRates
@@ -75,9 +89,42 @@ public class PaymentService(AppDbContext db)
             var lectureRate = rate is null ? FacultyService.DefaultClassRateINR : rate.LectureRateINR > 0 ? rate.LectureRateINR : rate.HourlyRateINR;
             var practicalRate = rate is null ? FacultyService.DefaultClassRateINR : rate.PracticalRateINR > 0 ? rate.PracticalRateINR : rate.HourlyRateINR;
             var historicalRates = await db.FacultyRates.Where(r => r.FacultyId == faculty.Id).ToListAsync();
-            var gross = CalculatePay(conductedSessions, historicalRates);
-            var effectiveLectureRate = lectureCount == 0 ? lectureRate : CalculatePay(conductedSessions.Where(s => s.SessionType is "Lecture" or "Tutorial"), historicalRates) / lectureCount;
-            var effectivePracticalRate = practicalCount == 0 ? practicalRate : CalculatePay(conductedSessions.Where(s => s.SessionType is not ("Lecture" or "Tutorial")), historicalRates) / practicalCount;
+
+            int lectureCount;
+            int practicalCount;
+            decimal totalHours;
+            decimal gross;
+            string? notes = null;
+
+            if (faculty.Id == hambardeFaculty?.Id)
+            {
+                var nonRm = conductedSessions.Where(s => !periodRmSessions.Contains(s)).ToList();
+                totalHours = nonRm.Sum(s => s.DurationHours) + halfRmHours;
+                lectureCount = (int)Math.Round(nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial") + halfRmLectures);
+                practicalCount = (int)Math.Round((nonRm.Count - nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial")) + halfRmPracticals);
+                gross = (nonRm.Sum(s => s.DurationHours) * lectureRate) + (halfRmHours * lectureRate);
+                notes = $"Research Methodology (MEC51050) - 50% Co-Teaching Allocation ({halfRmHours:0.#} hrs)";
+            }
+            else if (faculty.Id == gutteFaculty?.Id)
+            {
+                var nonRm = conductedSessions.Where(s => !periodRmSessions.Contains(s)).ToList();
+                var nonRmHours = nonRm.Sum(s => s.DurationHours);
+                totalHours = nonRmHours + halfRmHours;
+                lectureCount = (int)Math.Round(nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial") + halfRmLectures);
+                practicalCount = (int)Math.Round((nonRm.Count - nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial")) + halfRmPracticals);
+                gross = (nonRmHours * lectureRate) + (halfRmHours * lectureRate);
+                notes = $"ESD ({nonRmHours:0.#} hrs) + RM Co-Teaching 50% Allocation ({halfRmHours:0.#} hrs)";
+            }
+            else
+            {
+                lectureCount = conductedSessions.Count(s => s.SessionType is "Lecture" or "Tutorial");
+                practicalCount = conductedSessions.Count - lectureCount;
+                totalHours = conductedSessions.Sum(s => s.DurationHours);
+                gross = CalculatePay(conductedSessions, historicalRates);
+            }
+
+            var effectiveLectureRate = lectureCount == 0 ? lectureRate : (gross / (totalHours > 0 ? totalHours : 1m));
+            var effectivePracticalRate = practicalCount == 0 ? practicalRate : practicalRate;
 
             var adjustments = await db.PaymentAdjustments
                 .Where(a => a.PaymentPeriodId == periodId && a.FacultyId == faculty.Id)
@@ -99,6 +146,7 @@ public class PaymentService(AppDbContext db)
                 GrossAmount = gross,
                 Deductions = adjustments.Where(a => a.Type == "Deduction").Sum(a => a.Amount),
                 NetPayable = gross + totalAdjustment,
+                Notes = notes
             });
         }
 
@@ -126,13 +174,25 @@ public class PaymentService(AppDbContext db)
                 && item.Date <= endDate
                 && item.Status == SessionStatus.Conducted
                 && item.IsApproved)
+            .Include(item => item.Course)
             .ToListAsync();
+
+        var hambardeFaculty = faculty.FirstOrDefault(f => f.FullName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase));
+        var gutteFaculty = faculty.FirstOrDefault(f => f.FullName.Contains("Gutte", StringComparison.OrdinalIgnoreCase));
+
+        bool IsRm(Session s) =>
+            s.Course?.CourseCode == "MEC51050" || s.Course?.CourseName?.Contains("Research Methodology", StringComparison.OrdinalIgnoreCase) == true;
+
+        var rmSessions = sessions
+            .Where(s => (s.FacultyId == hambardeFaculty?.Id || s.FacultyId == gutteFaculty?.Id) && IsRm(s))
+            .ToList();
+
+        var halfRmLectures = (decimal)rmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial") * 0.5m;
+        var halfRmPracticals = (decimal)(rmSessions.Count - rmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial")) * 0.5m;
+        var halfRmHours = rmSessions.Sum(s => s.DurationHours) * 0.5m;
 
         return faculty.Select(item =>
         {
-            var classes = sessions.Where(session => session.FacultyId == item.Id).ToList();
-            var lectures = classes.Count(session => session.SessionType is "Lecture" or "Tutorial");
-            var practicals = classes.Count - lectures;
             var today = DateTime.Today;
             var rate = item.Rates
                 .Where(rate => rate.EffectiveFrom <= today
@@ -142,11 +202,32 @@ public class PaymentService(AppDbContext db)
             var lectureRate = rate is null ? FacultyService.DefaultClassRateINR : rate.LectureRateINR > 0 ? rate.LectureRateINR : rate.HourlyRateINR;
             var practicalRate = rate is null ? FacultyService.DefaultClassRateINR : rate.PracticalRateINR > 0 ? rate.PracticalRateINR : rate.HourlyRateINR;
 
+            if (item.Id == hambardeFaculty?.Id)
+            {
+                var nonRm = sessions.Where(s => s.FacultyId == item.Id && !rmSessions.Contains(s)).ToList();
+                var lectures = (decimal)nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial") + halfRmLectures;
+                var practicals = (decimal)(nonRm.Count - nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial")) + halfRmPracticals;
+                var payable = (nonRm.Sum(s => s.DurationHours) * lectureRate) + (halfRmHours * lectureRate);
+                return new MonthlyPaymentPreview(item.Id, item.FullName, lectures, practicals, lectureRate, practicalRate, payable);
+            }
+            if (item.Id == gutteFaculty?.Id)
+            {
+                var nonRm = sessions.Where(s => s.FacultyId == item.Id && !rmSessions.Contains(s)).ToList();
+                var lectures = (decimal)nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial") + halfRmLectures;
+                var practicals = (decimal)(nonRm.Count - nonRm.Count(s => s.SessionType is "Lecture" or "Tutorial")) + halfRmPracticals;
+                var payable = (nonRm.Sum(s => s.DurationHours) * lectureRate) + (halfRmHours * lectureRate);
+                return new MonthlyPaymentPreview(item.Id, item.FullName, lectures, practicals, lectureRate, practicalRate, payable);
+            }
+
+            var classes = sessions.Where(session => session.FacultyId == item.Id).ToList();
+            var standardLectures = (decimal)classes.Count(session => session.SessionType is "Lecture" or "Tutorial");
+            var standardPracticals = (decimal)(classes.Count - classes.Count(session => session.SessionType is "Lecture" or "Tutorial"));
+
             return new MonthlyPaymentPreview(
                 item.Id,
                 item.FullName,
-                lectures,
-                practicals,
+                standardLectures,
+                standardPracticals,
                 lectureRate,
                 practicalRate,
                 CalculatePay(classes, item.Rates));
@@ -253,18 +334,36 @@ public class PaymentService(AppDbContext db)
 
         var today = DateTime.Today;
 
+        var hambardeFaculty = faculty.FirstOrDefault(f => f.FullName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase));
+        var gutteFaculty = faculty.FirstOrDefault(f => f.FullName.Contains("Gutte", StringComparison.OrdinalIgnoreCase));
+
+        bool IsRm(Session s) =>
+            s.Course?.CourseCode == "MEC51050" || s.Course?.CourseName?.Contains("Research Methodology", StringComparison.OrdinalIgnoreCase) == true;
+
+        var allRmSessions = conductedSessions
+            .Where(s => (s.FacultyId == hambardeFaculty?.Id || s.FacultyId == gutteFaculty?.Id) && IsRm(s))
+            .ToList();
+
+        var weekRmSessions = allRmSessions
+            .Where(s => s.Date >= weekStart && s.Date <= weekEnd)
+            .OrderBy(s => s.Date).ThenBy(s => s.ActualStartTime)
+            .ToList();
+
+        var monthRmSessions = allRmSessions
+            .Where(s => s.Date >= monthStart && s.Date <= monthEnd)
+            .OrderBy(s => s.Date).ThenBy(s => s.ActualStartTime)
+            .ToList();
+
+        var weekRmLec = (decimal)weekRmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial") * 0.5m;
+        var weekRmPrac = (decimal)(weekRmSessions.Count - weekRmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial")) * 0.5m;
+        var weekRmPay = weekRmSessions.Sum(s => s.DurationHours * 1200.0m) * 0.5m;
+
+        var monthRmLec = (decimal)monthRmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial") * 0.5m;
+        var monthRmPrac = (decimal)(monthRmSessions.Count - monthRmSessions.Count(s => s.SessionType is "Lecture" or "Tutorial")) * 0.5m;
+        var monthRmPay = monthRmSessions.Sum(s => s.DurationHours * 1200.0m) * 0.5m;
+
         return faculty.Select(item =>
         {
-            var facultySessions = conductedSessions
-                .Where(session => session.FacultyId == item.Id)
-                .ToList();
-            var weeklySessions = facultySessions
-                .Where(session => session.Date >= weekStart && session.Date <= weekEnd)
-                .ToList();
-            var monthlySessions = facultySessions
-                .Where(session => session.Date >= monthStart && session.Date <= monthEnd)
-                .ToList();
-
             var currentRate = item.Rates
                 .Where(r => r.EffectiveFrom <= today && (r.EffectiveTo == null || r.EffectiveTo > today))
                 .OrderByDescending(r => r.EffectiveFrom)
@@ -276,7 +375,114 @@ public class PaymentService(AppDbContext db)
                 ? FacultyService.DefaultClassRateINR
                 : currentRate.PracticalRateINR > 0 ? currentRate.PracticalRateINR : currentRate.HourlyRateINR;
 
-            var weeklyItems = weeklySessions
+            if (item.Id == hambardeFaculty?.Id || item.Id == gutteFaculty?.Id)
+            {
+                var nonRmWeekly = conductedSessions
+                    .Where(s => s.FacultyId == item.Id && s.Date >= weekStart && s.Date <= weekEnd && !IsRm(s))
+                    .ToList();
+                var nonRmMonthly = conductedSessions
+                    .Where(s => s.FacultyId == item.Id && s.Date >= monthStart && s.Date <= monthEnd && !IsRm(s))
+                    .ToList();
+
+                var weeklyItems = nonRmWeekly
+                    .Select(s => new FacultyConductedSessionItem(
+                        s.Id,
+                        s.Date,
+                        s.Course?.CourseCode ?? "",
+                        s.Course?.CourseName ?? "Subject",
+                        s.SessionType,
+                        s.ActualStartTime,
+                        s.ActualEndTime,
+                        s.DurationHours,
+                        GetSessionSingleRate(s, item.Rates),
+                        s.IsOnline,
+                        s.MeetingPlatform,
+                        s.MeetingLink))
+                    .Concat(weekRmSessions.Select(s => new FacultyConductedSessionItem(
+                        s.Id,
+                        s.Date,
+                        s.Course?.CourseCode ?? "MEC51050",
+                        $"{ShortenCourseName(s.Course?.CourseName ?? "Research Methodology")} (50% Shared Co-Teaching)",
+                        s.SessionType,
+                        s.ActualStartTime,
+                        s.ActualEndTime,
+                        s.DurationHours * 0.5m,
+                        GetSessionSingleRate(s, item.Rates) * s.DurationHours * 0.5m,
+                        s.IsOnline,
+                        s.MeetingPlatform,
+                        s.MeetingLink)))
+                    .OrderBy(s => s.Date)
+                    .ThenBy(s => s.StartTime)
+                    .ToList();
+
+                var monthlyItems = nonRmMonthly
+                    .Select(s => new FacultyConductedSessionItem(
+                        s.Id,
+                        s.Date,
+                        s.Course?.CourseCode ?? "",
+                        s.Course?.CourseName ?? "Subject",
+                        s.SessionType,
+                        s.ActualStartTime,
+                        s.ActualEndTime,
+                        s.DurationHours,
+                        GetSessionSingleRate(s, item.Rates),
+                        s.IsOnline,
+                        s.MeetingPlatform,
+                        s.MeetingLink))
+                    .Concat(monthRmSessions.Select(s => new FacultyConductedSessionItem(
+                        s.Id,
+                        s.Date,
+                        s.Course?.CourseCode ?? "MEC51050",
+                        $"{ShortenCourseName(s.Course?.CourseName ?? "Research Methodology")} (50% Shared Co-Teaching)",
+                        s.SessionType,
+                        s.ActualStartTime,
+                        s.ActualEndTime,
+                        s.DurationHours * 0.5m,
+                        GetSessionSingleRate(s, item.Rates) * s.DurationHours * 0.5m,
+                        s.IsOnline,
+                        s.MeetingPlatform,
+                        s.MeetingLink)))
+                    .OrderBy(s => s.Date)
+                    .ThenBy(s => s.StartTime)
+                    .ToList();
+
+                var weeklyLectures = (decimal)CountLectures(nonRmWeekly) + weekRmLec;
+                var weeklyPracticals = (decimal)CountPracticals(nonRmWeekly) + weekRmPrac;
+                var weeklyPayable = CalculatePay(nonRmWeekly, item.Rates) + weekRmPay;
+
+                var monthlyLectures = (decimal)CountLectures(nonRmMonthly) + monthRmLec;
+                var monthlyPracticals = (decimal)CountPracticals(nonRmMonthly) + monthRmPrac;
+                var monthlyPayable = CalculatePay(nonRmMonthly, item.Rates) + monthRmPay;
+
+                return new FacultyPaymentOverview(
+                    item.Id,
+                    item.FullName,
+                    item.Organization,
+                    item.Role,
+                    item.Designation,
+                    lectureRate,
+                    practicalRate,
+                    weeklyLectures,
+                    weeklyPracticals,
+                    weeklyPayable,
+                    monthlyLectures,
+                    monthlyPracticals,
+                    monthlyPayable,
+                    weeklyItems,
+                    monthlyItems);
+            }
+
+            var facultySessions = conductedSessions
+                .Where(session => session.FacultyId == item.Id)
+                .ToList();
+            var weeklySessions = facultySessions
+                .Where(session => session.Date >= weekStart && session.Date <= weekEnd)
+                .ToList();
+            var monthlySessions = facultySessions
+                .Where(session => session.Date >= monthStart && session.Date <= monthEnd)
+                .ToList();
+
+            var stdWeeklyItems = weeklySessions
                 .OrderBy(s => s.Date)
                 .ThenBy(s => s.ActualStartTime)
                 .Select(s => new FacultyConductedSessionItem(
@@ -294,7 +500,7 @@ public class PaymentService(AppDbContext db)
                     s.MeetingLink))
                 .ToList();
 
-            var monthlyItems = monthlySessions
+            var stdMonthlyItems = monthlySessions
                 .OrderBy(s => s.Date)
                 .ThenBy(s => s.ActualStartTime)
                 .Select(s => new FacultyConductedSessionItem(
@@ -326,8 +532,8 @@ public class PaymentService(AppDbContext db)
                 CountLectures(monthlySessions),
                 CountPracticals(monthlySessions),
                 CalculatePay(monthlySessions, item.Rates),
-                weeklyItems,
-                monthlyItems);
+                stdWeeklyItems,
+                stdMonthlyItems);
         }).ToList();
     }
 
@@ -503,13 +709,13 @@ public class PaymentService(AppDbContext db)
                         r.RelativeItem().Border(1).BorderColor("#FDE68A").Background("#FFFBEB").Padding(7).Column(c =>
                         {
                             c.Item().Text("TOTAL LECTURES").FontSize(7.5f).Bold().FontColor("#B45309");
-                            c.Item().Text($"{totalLectures} Lectures").FontSize(13).Bold().FontColor("#92400E");
+                            c.Item().Text($"{totalLectures:0.#} Lectures").FontSize(13).Bold().FontColor("#92400E");
                         });
                         r.ConstantItem(8);
                         r.RelativeItem().Border(1).BorderColor("#BFDBFE").Background("#EFF6FF").Padding(7).Column(c =>
                         {
                             c.Item().Text("TOTAL PRACTICALS").FontSize(7.5f).Bold().FontColor("#1D4ED8");
-                            c.Item().Text($"{totalPracticals} Practicals").FontSize(13).Bold().FontColor("#1E40AF");
+                            c.Item().Text($"{totalPracticals:0.#} Practicals").FontSize(13).Bold().FontColor("#1E40AF");
                         });
                         r.ConstantItem(8);
                         r.RelativeItem().Border(1).BorderColor("#A7F3D0").Background("#ECFDF5").Padding(7).Column(c =>
@@ -550,16 +756,16 @@ public class PaymentService(AppDbContext db)
                             table.Cell().Background(bg).Padding(4.5f).AlignCenter().Text(idx.ToString()).FontSize(8f);
                             table.Cell().Background(bg).Padding(4.5f).Text(row.FacultyName).Bold().FontSize(8f);
                             table.Cell().Background(bg).Padding(4.5f).Text($"{row.Organization} · {row.Role}").FontSize(7.5f).FontColor("#475569");
-                            table.Cell().Background(bg).Padding(4.5f).AlignCenter().Text(row.MonthlyLectureCount.ToString()).FontSize(8f);
-                            table.Cell().Background(bg).Padding(4.5f).AlignCenter().Text(row.MonthlyPracticalCount.ToString()).FontSize(8f);
+                            table.Cell().Background(bg).Padding(4.5f).AlignCenter().Text(row.MonthlyLectureCount.ToString("0.#")).FontSize(8f);
+                            table.Cell().Background(bg).Padding(4.5f).AlignCenter().Text(row.MonthlyPracticalCount.ToString("0.#")).FontSize(8f);
                             table.Cell().Background(bg).Padding(4.5f).AlignRight().Text($"INR {row.MonthlyPayableAmount:N0}").Bold().FontSize(8f).FontColor("#047857");
                             idx++;
                         }
 
                         // Total Row
                         table.Cell().ColumnSpan(3).Background("#E2E8F0").Padding(5).Text("GRAND TOTAL").Bold().FontSize(8.5f);
-                        table.Cell().Background("#E2E8F0").Padding(5).AlignCenter().Text(totalLectures.ToString()).Bold().FontSize(8.5f);
-                        table.Cell().Background("#E2E8F0").Padding(5).AlignCenter().Text(totalPracticals.ToString()).Bold().FontSize(8.5f);
+                        table.Cell().Background("#E2E8F0").Padding(5).AlignCenter().Text(totalLectures.ToString("0.#")).Bold().FontSize(8.5f);
+                        table.Cell().Background("#E2E8F0").Padding(5).AlignCenter().Text(totalPracticals.ToString("0.#")).Bold().FontSize(8.5f);
                         table.Cell().Background("#E2E8F0").Padding(5).AlignRight().Text($"INR {totalAmount:N0}").Bold().FontSize(9f).FontColor("#102A43");
                     });
                 });
@@ -811,8 +1017,8 @@ public class PaymentService(AppDbContext db)
                             r.RelativeItem(2).Column(c =>
                             {
                                 c.Item().Text("COMPENSATION SUMMARY MATRIX").FontSize(8f).Bold().FontColor("#102A43");
-                                c.Item().PaddingTop(2).Text($"• Theory Lectures: {faculty.MonthlyLectureCount} conducted × INR {faculty.LectureRate:N0} = INR {(faculty.MonthlyLectureCount * faculty.LectureRate):N0}").FontSize(7.5f).FontColor("#334155");
-                                c.Item().Text($"• Practical Labs:   {faculty.MonthlyPracticalCount} conducted × INR {faculty.PracticalRate:N0} = INR {(faculty.MonthlyPracticalCount * faculty.PracticalRate):N0}").FontSize(7.5f).FontColor("#334155");
+                                c.Item().PaddingTop(2).Text($"• Theory Lectures: {faculty.MonthlyLectureCount:0.#} conducted × INR {faculty.LectureRate:N0} = INR {(faculty.MonthlyLectureCount * faculty.LectureRate):N0}").FontSize(7.5f).FontColor("#334155");
+                                c.Item().Text($"• Practical Labs:   {faculty.MonthlyPracticalCount:0.#} conducted × INR {faculty.PracticalRate:N0} = INR {(faculty.MonthlyPracticalCount * faculty.PracticalRate):N0}").FontSize(7.5f).FontColor("#334155");
                                 c.Item().PaddingTop(3).Text($"Amount in Words: {amountInWords}").FontSize(7.5f).Bold().FontColor("#164E80");
                             });
 
@@ -1074,8 +1280,8 @@ public class PaymentService(AppDbContext db)
                                 r.RelativeItem(2).Column(c =>
                                 {
                                     c.Item().Text("COMPENSATION SUMMARY MATRIX").FontSize(8f).Bold().FontColor("#102A43");
-                                    c.Item().PaddingTop(2).Text($"• Theory Lectures: {faculty.MonthlyLectureCount} conducted × INR {faculty.LectureRate:N0} = INR {(faculty.MonthlyLectureCount * faculty.LectureRate):N0}").FontSize(7.5f).FontColor("#334155");
-                                    c.Item().Text($"• Practical Labs:   {faculty.MonthlyPracticalCount} conducted × INR {faculty.PracticalRate:N0} = INR {(faculty.MonthlyPracticalCount * faculty.PracticalRate):N0}").FontSize(7.5f).FontColor("#334155");
+                                    c.Item().PaddingTop(2).Text($"• Theory Lectures: {faculty.MonthlyLectureCount:0.#} conducted × INR {faculty.LectureRate:N0} = INR {(faculty.MonthlyLectureCount * faculty.LectureRate):N0}").FontSize(7.5f).FontColor("#334155");
+                                    c.Item().Text($"• Practical Labs:   {faculty.MonthlyPracticalCount:0.#} conducted × INR {faculty.PracticalRate:N0} = INR {(faculty.MonthlyPracticalCount * faculty.PracticalRate):N0}").FontSize(7.5f).FontColor("#334155");
                                     c.Item().PaddingTop(3).Text($"Amount in Words: {amountInWords}").FontSize(7.5f).Bold().FontColor("#164E80");
                                 });
 
@@ -1175,15 +1381,32 @@ public class PaymentService(AppDbContext db)
                 conductedSessions = scheduled;
         }
 
-        var facultyGroups = conductedSessions.GroupBy(s => s.FacultyId).ToList();
+        var hambardeFaculty = faculties.FirstOrDefault(f => f.FullName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase));
+        var gutteFaculty = faculties.FirstOrDefault(f => f.FullName.Contains("Gutte", StringComparison.OrdinalIgnoreCase));
+
+        bool IsRm(Session s) =>
+            s.Course?.CourseCode == "MEC51050" || s.Course?.CourseName?.Contains("Research Methodology", StringComparison.OrdinalIgnoreCase) == true;
+
+        var allRmSessions = conductedSessions
+            .Where(s => (s.FacultyId == hambardeFaculty?.Id || s.FacultyId == gutteFaculty?.Id) && IsRm(s))
+            .ToList();
+        var totalRmHours = allRmSessions.Sum(s => s.DurationHours);
+        var halfRmHours = totalRmHours * 0.5m;
+
+        var activeFacultyIds = conductedSessions.Select(s => s.FacultyId).Distinct().ToList();
+        if (halfRmHours > 0)
+        {
+            if (hambardeFaculty != null && !activeFacultyIds.Contains(hambardeFaculty.Id)) activeFacultyIds.Add(hambardeFaculty.Id);
+            if (gutteFaculty != null && !activeFacultyIds.Contains(gutteFaculty.Id)) activeFacultyIds.Add(gutteFaculty.Id);
+        }
+
         var items = new List<ExecutiveSanctionFacultyItem>();
         int sr = 1;
 
-        var facultyListWithSessions = facultyGroups
-            .Select(group =>
+        var facultyListWithSessions = activeFacultyIds
+            .Select(facId =>
             {
-                var fac = faculties.FirstOrDefault(f => f.Id == group.Key) ?? group.First().Faculty;
-                var hours = group.Sum(s => s.DurationHours);
+                var fac = faculties.FirstOrDefault(f => f.Id == facId)!;
                 var rates = fac.Rates;
                 var currentRate = rates
                     .Where(r => r.EffectiveFrom <= eDate && (r.EffectiveTo == null || r.EffectiveTo > eDate))
@@ -1192,9 +1415,58 @@ public class PaymentService(AppDbContext db)
                 var rateVal = currentRate is null
                     ? FacultyService.DefaultClassRateINR
                     : currentRate.LectureRateINR > 0 ? currentRate.LectureRateINR : currentRate.HourlyRateINR;
-                var payable = hours * rateVal;
-                return new { Faculty = fac, Sessions = group.ToList(), Hours = hours, Rate = rateVal, Payable = payable };
+
+                if (fac.Id == hambardeFaculty?.Id)
+                {
+                    var nonRm = conductedSessions.Where(s => s.FacultyId == fac.Id && !allRmSessions.Contains(s)).ToList();
+                    var hours = nonRm.Sum(s => s.DurationHours) + halfRmHours;
+                    var payable = hours * rateVal;
+                    return new
+                    {
+                        Faculty = fac,
+                        Sessions = nonRm,
+                        Hours = hours,
+                        Rate = rateVal,
+                        Payable = payable,
+                        SubjectOverride = (string?)"Research Methodology for Engineers (MEC51050) [50% Co-Teaching]",
+                        ScheduleOverride = (string?)$"{halfRmHours:0.#}h RM (50% Co-Teaching Allocation)"
+                    };
+                }
+                if (fac.Id == gutteFaculty?.Id)
+                {
+                    var nonRm = conductedSessions.Where(s => s.FacultyId == fac.Id && !allRmSessions.Contains(s)).ToList();
+                    var nonRmHours = nonRm.Sum(s => s.DurationHours);
+                    var hours = nonRmHours + halfRmHours;
+                    var payable = hours * rateVal;
+                    var esdSchedule = nonRm.Any() ? FormatScheduleSummary(nonRm) : "";
+                    var schedText = string.IsNullOrEmpty(esdSchedule) ? $"{halfRmHours:0.#}h RM (50% Co-Teaching)" : $"{halfRmHours:0.#}h RM (50% Co-Teaching), {esdSchedule}";
+                    return new
+                    {
+                        Faculty = fac,
+                        Sessions = nonRm,
+                        Hours = hours,
+                        Rate = rateVal,
+                        Payable = payable,
+                        SubjectOverride = (string?)"Research Methodology (MEC51050) [50% Co-Teaching], Employment Skill Development (ESD10010)",
+                        ScheduleOverride = (string?)schedText
+                    };
+                }
+
+                var sList = conductedSessions.Where(s => s.FacultyId == fac.Id).ToList();
+                var stdHours = sList.Sum(s => s.DurationHours);
+                var stdPayable = stdHours * rateVal;
+                return new
+                {
+                    Faculty = fac,
+                    Sessions = sList,
+                    Hours = stdHours,
+                    Rate = rateVal,
+                    Payable = stdPayable,
+                    SubjectOverride = (string?)null,
+                    ScheduleOverride = (string?)null
+                };
             })
+            .Where(x => x.Hours > 0)
             .OrderByDescending(x => x.Faculty.Organization == "NIRVAA")
             .ThenByDescending(x => x.Payable)
             .ToList();
@@ -1220,14 +1492,14 @@ public class PaymentService(AppDbContext db)
             }
 
             var distinctCourses = sList.Select(s => s.Course).Where(c => c != null).DistinctBy(c => c.Id).ToList();
-            var subjectName = distinctCourses.Count switch
+            var subjectName = entry.SubjectOverride ?? (distinctCourses.Count switch
             {
                 1 => $"{ShortenCourseName(distinctCourses[0].CourseName)} ({distinctCourses[0].CourseCode})",
                 > 1 => string.Join(", ", distinctCourses.Select(c => $"{ShortenCourseName(c.CourseName)} ({c.CourseCode})")),
                 _ => "Academic Sessions"
-            };
+            });
 
-            var scheduleText = FormatScheduleSummary(sList);
+            var scheduleText = entry.ScheduleOverride ?? FormatScheduleSummary(sList);
 
             items.Add(new ExecutiveSanctionFacultyItem(
                 sr++,
@@ -1409,7 +1681,7 @@ public class PaymentService(AppDbContext db)
                         0,
                         0,
                         0,
-                        (int)item.Hours,
+                        item.Hours,
                         0,
                         item.PayableAmount,
                         new List<FacultyConductedSessionItem>(),
@@ -1807,8 +2079,8 @@ public class PaymentService(AppDbContext db)
                         r.RelativeItem(2).Column(c =>
                         {
                             c.Item().Text("COMPENSATION SUMMARY MATRIX").FontSize(8f).Bold().FontColor("#102A43");
-                            c.Item().PaddingTop(2).Text($"• Theory Lectures: {faculty.MonthlyLectureCount} conducted × INR {faculty.LectureRate:N0} = INR {(faculty.MonthlyLectureCount * faculty.LectureRate):N0}").FontSize(7.5f).FontColor("#334155");
-                            c.Item().Text($"• Practical Labs:   {faculty.MonthlyPracticalCount} conducted × INR {faculty.PracticalRate:N0} = INR {(faculty.MonthlyPracticalCount * faculty.PracticalRate):N0}").FontSize(7.5f).FontColor("#334155");
+                            c.Item().PaddingTop(2).Text($"• Theory Lectures: {faculty.MonthlyLectureCount:0.#} conducted × INR {faculty.LectureRate:N0} = INR {(faculty.MonthlyLectureCount * faculty.LectureRate):N0}").FontSize(7.5f).FontColor("#334155");
+                            c.Item().Text($"• Practical Labs:   {faculty.MonthlyPracticalCount:0.#} conducted × INR {faculty.PracticalRate:N0} = INR {(faculty.MonthlyPracticalCount * faculty.PracticalRate):N0}").FontSize(7.5f).FontColor("#334155");
                             c.Item().PaddingTop(3).Text($"Amount in Words: {amountInWords}").FontSize(7.5f).Bold().FontColor("#164E80");
                         });
 
@@ -2166,8 +2438,8 @@ public class PaymentService(AppDbContext db)
 public sealed record MonthlyPaymentPreview(
     int FacultyId,
     string FacultyName,
-    int LectureCount,
-    int PracticalCount,
+    decimal LectureCount,
+    decimal PracticalCount,
     decimal LectureRate,
     decimal PracticalRate,
     decimal PayableAmount);
@@ -2191,11 +2463,11 @@ public sealed record FacultyPaymentOverview(
     string? Designation,
     decimal LectureRate,
     decimal PracticalRate,
-    int WeeklyLectureCount,
-    int WeeklyPracticalCount,
+    decimal WeeklyLectureCount,
+    decimal WeeklyPracticalCount,
     decimal WeeklyPayableAmount,
-    int MonthlyLectureCount,
-    int MonthlyPracticalCount,
+    decimal MonthlyLectureCount,
+    decimal MonthlyPracticalCount,
     decimal MonthlyPayableAmount,
     List<FacultyConductedSessionItem> WeeklySessions,
     List<FacultyConductedSessionItem> MonthlySessions);

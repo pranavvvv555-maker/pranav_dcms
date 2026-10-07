@@ -435,3 +435,4 @@ var totalHours = db.Sessions.Where(s => s.Date >= new DateTime(2026, 9, 11) && s
 var lineItemsSum = db.PaymentLineItems.Where(l => l.PaymentPeriod.PeriodName == "11 September - 04 October 2026").Sum(l => l.NetPayable);
 
 Console.WriteLine($"Reseed successful! Sessions: {sessionsCount}, Total Hours: {totalHours}, Total Payment: Rs. {lineItemsSum}");
+
