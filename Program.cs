@@ -73,6 +73,7 @@ builder.Services.AddScoped<AssessmentService>();
 builder.Services.AddScoped<MockInterviewService>();
 builder.Services.AddScoped<MockInterviewImportService>();
 builder.Services.AddScoped<StudentService>();
+builder.Services.AddScoped<AcademicHolidayService>();
 
 // Blazor
 builder.Services.AddRazorComponents()
@@ -88,6 +89,8 @@ using (var scope = app.Services.CreateScope())
     try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN IsOnline INTEGER NOT NULL DEFAULT 0;"); } catch { }
     try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN MeetingPlatform TEXT NULL;"); } catch { }
     try { await db.Database.ExecuteSqlRawAsync("ALTER TABLE Sessions ADD COLUMN MeetingLink TEXT NULL;"); } catch { }
+    var holidaySvc = scope.ServiceProvider.GetRequiredService<AcademicHolidayService>();
+    await holidaySvc.EnsureTableExistsAsync();
     await SeedData.InitializeAsync(db);
 }
 

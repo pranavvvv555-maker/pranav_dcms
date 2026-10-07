@@ -4,6 +4,7 @@
 @inject SessionService SessionSvc
 @inject FacultyService FacultySvc
 @inject CourseService CourseSvc
+@inject AcademicHolidayService HolidaySvc
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 @inject IWebHostEnvironment HostEnv
@@ -862,10 +863,12 @@
         <div class="mb-3">
             <span style="font-size:0.72rem; font-weight:800; color:#475569; text-transform:uppercase;">Holiday Quick Select:</span>
             <div class="d-flex flex-wrap gap-1 mt-1">
-                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 9, 18), "Gouri Poojan"))">18 Sep (Gouri Poojan)</MudChip>
-                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 9, 25), "Anant Chaturdashi"))">25 Sep (Anant Chaturdashi)</MudChip>
-                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 10, 2), "Gandhi Jayanti"))">02 Oct (Gandhi Jayanti)</MudChip>
-                <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(new DateTime(2026, 9, 14), "Ganesh Chaturthi"))">14 Sep (Ganesh Chaturthi)</MudChip>
+                @foreach (var (hDate, hName) in _holidays)
+                {
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => QuickSelectHoliday(hDate, hName))">
+                        @hDate.ToString("dd MMM") (@hName)
+                    </MudChip>
+                }
             </div>
         </div>
 
@@ -1063,11 +1066,13 @@
     private decimal FilteredMonthPay => FilteredFaculty.Sum(f => f.MonthlyPayableAmount);
     private decimal FilteredMonthLectures => FilteredFaculty.Sum(f => f.MonthlyLectureCount);
     private decimal FilteredMonthPracticals => FilteredFaculty.Sum(f => f.MonthlyPracticalCount);
+    private Dictionary<DateTime, string> _holidays = new();
 
     protected override async Task OnInitializedAsync()
     {
         _allFacultyList = await FacultySvc.GetAllAsync();
         _allCoursesList = await CourseSvc.GetAllAsync();
+        _holidays = await HolidaySvc.GetHolidaysDictAsync();
 
         if (ReportDate.HasValue)
             _referenceDate = ReportDate.Value.Date;
@@ -1464,19 +1469,11 @@
         return date.Date.AddDays(-daysSinceFriday);
     }
 
-    private static readonly Dictionary<DateTime, string> AcademicHolidays = new()
-    {
-        { new DateTime(2026, 9, 14), "Ganesh Chaturthi (14 Sep)" },
-        { new DateTime(2026, 9, 18), "Gouri Poojan (18 Sep)" },
-        { new DateTime(2026, 9, 25), "Anant Chaturdashi (25 Sep)" },
-        { new DateTime(2026, 10, 2), "Gandhi Jayanti (02 Oct)" }
-    };
-
     private bool HasHolidaysInPeriod =>
-        AcademicHolidays.Keys.Any(d => d >= PeriodStart && d <= PeriodEnd);
+        _holidays.Keys.Any(d => d >= PeriodStart && d <= PeriodEnd);
 
     private string HolidaysInPeriodSummary =>
-        string.Join(", ", AcademicHolidays.Where(kvp => kvp.Key >= PeriodStart && kvp.Key <= PeriodEnd).Select(kvp => kvp.Value));
+        string.Join(", ", _holidays.Where(kvp => kvp.Key >= PeriodStart && kvp.Key <= PeriodEnd).Select(kvp => $"{kvp.Value} ({kvp.Key:dd MMM})"));
 }
 
 

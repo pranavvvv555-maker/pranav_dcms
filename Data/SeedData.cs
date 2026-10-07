@@ -18,6 +18,7 @@ public static class SeedData
             await EnsureAugust2026SessionsAsync(db);
             await EnsureSeptemberOctober2026SessionsAsync(db);
             await EnsureInductionStudentsAsync(db);
+            await EnsureAcademicHolidaysAsync(db);
             return;
         }
 
@@ -77,6 +78,7 @@ public static class SeedData
 
         // --- Authentic Student Cohort Roll List (26 Induction Students) ---
         await EnsureInductionStudentsAsync(db);
+        await EnsureAcademicHolidaysAsync(db);
 
         // Classes and payments intentionally start clean; faculty start with the standard fee.
         await EnsureDefaultClassRatesAsync(db);
@@ -1280,6 +1282,50 @@ public static class SeedData
 
         if (changed)
         {
+            await db.SaveChangesAsync();
+        }
+    }
+
+    private static async Task EnsureAcademicHolidaysAsync(AppDbContext db)
+    {
+        try
+        {
+            await db.Database.ExecuteSqlRawAsync(@"
+                CREATE TABLE IF NOT EXISTS AcademicHolidays (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    Date TEXT NOT NULL,
+                    Name TEXT NOT NULL,
+                    Description TEXT NULL,
+                    IsRemovedDay INTEGER NOT NULL DEFAULT 0,
+                    CreatedAt TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS IX_AcademicHolidays_Date ON AcademicHolidays (Date);
+            ");
+        }
+        catch { }
+
+        var count = await db.AcademicHolidays.CountAsync();
+        if (count == 0)
+        {
+            var defaultHolidays = new (DateTime Date, string Name, string Desc)[]
+            {
+                (new DateTime(2026, 9, 14), "Ganesh Chaturthi", "State and University Holiday"),
+                (new DateTime(2026, 9, 18), "Gouri Poojan", "University and State Gazetted Holiday"),
+                (new DateTime(2026, 9, 25), "Anant Chaturdashi", "University and State Gazetted Holiday"),
+                (new DateTime(2026, 10, 2), "Gandhi Jayanti", "National Gazetted Holiday")
+            };
+
+            foreach (var (date, name, desc) in defaultHolidays)
+            {
+                db.AcademicHolidays.Add(new AcademicHoliday
+                {
+                    Date = date.Date,
+                    Name = name,
+                    Description = desc,
+                    IsRemovedDay = false,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
             await db.SaveChangesAsync();
         }
     }

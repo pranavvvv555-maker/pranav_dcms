@@ -5,6 +5,7 @@
 @inject FacultyService FacultySvc
 @inject CourseService CourseSvc
 @inject PaymentService PaymentSvc
+@inject AcademicHolidayService HolidaySvc
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
@@ -37,11 +38,27 @@
         <div class="weekend-desk-picker__days">
             @foreach (var date in WeekendDates)
             {
-                <MudButton Variant="Variant.Text" Class="@($"weekend-date-tab {(IsSelectedDate(date) ? "weekend-date-tab--active" : string.Empty)}")"
+                var isHoliday = IsHolidayDate(date);
+                <MudButton Variant="Variant.Text" Class="@($"weekend-date-tab {(IsSelectedDate(date) ? "weekend-date-tab--active" : string.Empty)} {(isHoliday ? "weekend-date-tab--holiday" : string.Empty)}")"
                            OnClick="@(() => SetSelectedDate(date))">
                     <span>@date.ToString("dddd")</span>
                     <strong>@date.ToString("dd MMM")</strong>
-                    <small>@(DaySessionCount(date) > 0 ? $"{DaySessionCount(date)} classes" : (_selectedTimetableVersion == 1 && date.DayOfWeek == DayOfWeek.Thursday ? "Not in Legacy" : $"{DaySessionCount(date)} classes"))</small>
+                    @if (isHoliday)
+                    {
+                        var onlineClassCount = DaySessionCount(date);
+                        if (onlineClassCount > 0)
+                        {
+                            <small style="color:#0284c7; font-weight:800; background:#e0f2fe; padding:2px 8px; border-radius:6px;">🏖️ Holiday (@onlineClassCount Online)</small>
+                        }
+                        else
+                        {
+                            <small style="color:#dc2626; font-weight:800; background:#fee2e2; padding:2px 8px; border-radius:6px;">🏖️ HOLIDAY</small>
+                        }
+                    }
+                    else
+                    {
+                        <small>@(DaySessionCount(date) > 0 ? $"{DaySessionCount(date)} classes" : (_selectedTimetableVersion == 1 && date.DayOfWeek == DayOfWeek.Thursday ? "Not in Legacy" : $"{DaySessionCount(date)} classes"))</small>
+                    }
                 </MudButton>
             }
         </div>
@@ -58,27 +75,45 @@
                    Disabled="@(!CanSubmitDay)" OnClick="OpenSubmitDayDialog" Class="selected-day-banner__submit">
             @SubmitDayButtonLabel
         </MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.EventBusy"
+                   OnClick="OpenDeclareHolidayDialog"
+                   Class="selected-day-banner__holiday-btn"
+                   Style="background:#dc2626 !important; color:#ffffff !important; font-weight:800; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);">
+            @(IsHolidayDate(_selectedDate) ? "Manage Holiday / Restore" : "Declare Holiday / Remove Day")
+        </MudButton>
     </section>
 
     @if (GetHolidayName(_selectedDate) is string holidayName)
     {
         <MudPaper Elevation="0" Class="p-3 mb-3 d-flex align-center justify-space-between flex-wrap gap-2"
-                  Style="background:#fffbeb; border:1px solid #fde68a; border-radius:12px;">
-            <div class="d-flex align-center gap-2">
-                <MudIcon Icon="@Icons.Material.Filled.BeachAccess" Color="Color.Warning" />
+                  Style="background:#fff1f2; border:1px solid #fecdd3; border-radius:12px;">
+            <div class="d-flex align-center gap-3">
+                <div style="background:#ffe4e6; padding:8px; border-radius:10px; display:grid; place-items:center;">
+                    <MudIcon Icon="@Icons.Material.Filled.BeachAccess" Style="color:#e11d48;" />
+                </div>
                 <div>
-                    <span style="font-weight:800; color:#92400e; font-size:0.9rem;">Academic Holiday: @holidayName (@_selectedDate.ToString("dd MMMM yyyy"))</span>
-                    <div style="font-size:0.75rem; color:#78350f;">
+                    <span style="font-weight:800; color:#9f1239; font-size:0.92rem;">Academic Holiday: @holidayName (@_selectedDate.ToString("dd MMMM yyyy"))</span>
+                    <div style="font-size:0.75rem; color:#be123c;">
                         Campus classes suspended. Did a faculty conduct an online lecture? Record it below to credit their workload & payment.
                     </div>
                 </div>
             </div>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
-                       StartIcon="@Icons.Material.Filled.VideoCall"
-                       OnClick="@(() => OpenOnlineLectureDialogForDate(_selectedDate, holidayName))"
-                       Style="font-weight:700; text-transform:none;">
-                + Add Online Lecture on this Holiday
-            </MudButton>
+            <div class="d-flex align-center gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.VideoCall"
+                           OnClick="@(() => OpenOnlineLectureDialogForDate(_selectedDate, holidayName))"
+                           Style="font-weight:700; text-transform:none;">
+                    + Add Online Lecture on this Holiday
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Restore"
+                           OnClick="@(() => RevokeHolidayDirectAsync(_selectedDate))"
+                           Style="font-weight:700; text-transform:none; border-color:#f43f5e; color:#e11d48;">
+                    Restore Day
+                </MudButton>
+            </div>
         </MudPaper>
     }
 
@@ -622,6 +657,150 @@
     </DialogActions>
 </MudDialog>
 
+<MudDialog @bind-Visible="_declareHolidayDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <div style="background:#fee2e2; border-radius:10px; width:38px; height:38px; display:grid; place-items:center;">
+                <MudIcon Icon="@Icons.Material.Filled.EventBusy" Style="color:#dc2626;" />
+            </div>
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight:800; color:#0f172a;">Declare Holiday or Remove Day</MudText>
+                <div style="font-size:0.8rem; color:#64748b;">Selected Date: <b>@_selectedDate.ToString("dddd, dd MMMM yyyy")</b></div>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="d-flex flex-column gap-3 pt-2">
+            @if (IsHolidayDate(_selectedDate))
+            {
+                <MudPaper Elevation="0" Class="p-3 d-flex align-center justify-space-between flex-wrap gap-2"
+                          Style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:12px;">
+                    <div>
+                        <div class="d-flex align-center gap-2">
+                            <MudIcon Icon="@Icons.Material.Filled.BeachAccess" Style="color:#dc2626;" Size="Size.Small" />
+                            <span style="font-weight:800; color:#991b1b; font-size:0.95rem;">Current Status: Declared Holiday</span>
+                        </div>
+                        <div style="font-size:0.85rem; color:#b91c1c; margin-top:2px;">
+                            Title: <b>@GetHolidayName(_selectedDate)</b> · Campus classes suspended
+                        </div>
+                    </div>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Restore"
+                               OnClick="@(() => RevokeHolidayDirectAsync(_selectedDate))"
+                               Style="font-weight:700; text-transform:none;">
+                        Restore Regular Teaching Day
+                    </MudButton>
+                </MudPaper>
+            }
+
+            <MudPaper Elevation="0" Class="p-3" Style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
+                <div class="d-flex align-center justify-space-between flex-wrap gap-2 mb-2">
+                    <MudButtonGroup Variant="Variant.Outlined" Size="Size.Small">
+                        <MudButton Color="Color.Error" Variant="@(_holidayDialogMode == 0 ? Variant.Filled : Variant.Outlined)"
+                                   OnClick="@(() => _holidayDialogMode = 0)" Style="font-weight:700; text-transform:none;">
+                            🏖️ Declare as Holiday
+                        </MudButton>
+                        <MudButton Color="Color.Dark" Variant="@(_holidayDialogMode == 1 ? Variant.Filled : Variant.Outlined)"
+                                   OnClick="@(() => _holidayDialogMode = 1)" Style="font-weight:700; text-transform:none;">
+                            🗑️ Remove Day / Clear Classes
+                        </MudButton>
+                    </MudButtonGroup>
+                </div>
+
+                @if (_holidayDialogMode == 0)
+                {
+                    <div class="d-flex flex-column gap-3 mt-2">
+                        <MudTextField @bind-Value="_declareHolidayName" Label="Holiday Occasion / Reason" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true" Placeholder="e.g. Ganesh Chaturthi, University Holiday, Local Festival" />
+
+                        <div>
+                            <span style="font-size:0.72rem; font-weight:800; color:#64748b; text-transform:uppercase;">Quick Presets:</span>
+                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => _declareHolidayName = "Ganesh Chaturthi")">Ganesh Chaturthi</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => _declareHolidayName = "Gouri Poojan")">Gouri Poojan</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => _declareHolidayName = "Anant Chaturdashi")">Anant Chaturdashi</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => _declareHolidayName = "Gandhi Jayanti")">Gandhi Jayanti</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning" OnClick="@(() => _declareHolidayName = "Diwali Vacation")">Diwali Vacation</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => _declareHolidayName = "University Gazetted Holiday")">University Holiday</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary" OnClick="@(() => _declareHolidayName = "Institutional / Local Holiday")">Local Holiday</MudChip>
+                                <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Secondary" OnClick="@(() => _declareHolidayName = "Emergency Closure")">Emergency Closure</MudChip>
+                            </div>
+                        </div>
+
+                        <MudTextField @bind-Value="_declareHolidayDesc" Label="Description / Circular Reference (Optional)" Variant="Variant.Outlined" Margin="Margin.Dense" Placeholder="e.g. Vice Chancellor circular or local district holiday" />
+
+                        <div class="p-2" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
+                            <MudCheckBox @bind-Value="_clearDayClassesOnHoliday" Color="Color.Error" Dense="true">
+                                <span style="font-size:0.83rem; font-weight:600;">
+                                    Clear & cancel physical timetable classes on this day (@_daySessions.Count(s => !s.IsOnline) scheduled classes)
+                                </span>
+                            </MudCheckBox>
+                            <MudCheckBox @bind-Value="_removeOnlineClassesOnHoliday" Color="Color.Warning" Dense="true" Class="mt-1">
+                                <span style="font-size:0.83rem; color:#64748b;">
+                                    Also delete online lectures conducted on this day (@_daySessions.Count(s => s.IsOnline) online lectures)
+                                </span>
+                            </MudCheckBox>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex flex-column gap-3 mt-2">
+                        <MudAlert Severity="Severity.Warning" Dense="true" Class="my-1">
+                            This will remove all classes logged or scheduled for <b>@_selectedDate.ToString("dddd, dd MMMM yyyy")</b>. Total classes will be reset to 0.
+                        </MudAlert>
+
+                        <div class="d-flex align-center justify-space-between p-2" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
+                            <div>
+                                <span style="font-size:0.85rem; font-weight:700; color:#0f172a;">Current Classes on this Date:</span>
+                                <div style="font-size:0.75rem; color:#64748b;">Physical: @_daySessions.Count(s => !s.IsOnline) · Online: @_daySessions.Count(s => s.IsOnline)</div>
+                            </div>
+                            <MudChip T="string" Color="Color.Primary" Size="Size.Small" Style="font-weight:800;">
+                                @_daySessions.Count classes (@_daySessions.Sum(s => s.DurationHours) Hrs)
+                            </MudChip>
+                        </div>
+
+                        <div class="p-2" style="background:#fff; border:1px solid #e2e8f0; border-radius:8px;">
+                            <MudCheckBox @bind-Value="_markAsExcludedNonTeachingDay" Color="Color.Error" Dense="true">
+                                <span style="font-size:0.83rem; font-weight:700; color:#991b1b;">
+                                    Mark this date as an Excluded / Non-Teaching Day (shows on calendar & timetable)
+                                </span>
+                            </MudCheckBox>
+                            <MudCheckBox @bind-Value="_removeOnlineClassesOnHoliday" Color="Color.Warning" Dense="true" Class="mt-1">
+                                <span style="font-size:0.83rem; color:#64748b;">
+                                    Also delete online lectures if any exist on this date
+                                </span>
+                            </MudCheckBox>
+                        </div>
+                    </div>
+                }
+            </MudPaper>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="@(() => _declareHolidayDialogVisible = false)">Cancel</MudButton>
+        @if (_holidayDialogMode == 0)
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.EventBusy"
+                       OnClick="ConfirmDeclareHolidayAsync"
+                       Style="font-weight:800; background:#dc2626 !important; color:#fff !important; text-transform:none;">
+                Confirm & Declare Holiday
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.DeleteForever"
+                       OnClick="ConfirmRemoveDayAsync"
+                       Style="font-weight:800; background:#dc2626 !important; color:#fff !important; text-transform:none;">
+                Remove All Classes for This Day
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
 @code {
     private readonly List<Session> _daySessions = new();
     private Dictionary<DateTime, int> _weekendSessionCounts = new();
@@ -652,6 +831,15 @@
     private DailySessionAttendanceSummary? _attendanceSession;
     private List<AttendanceStudentItem> _attendanceStudents = new();
 
+    private Dictionary<DateTime, string> _holidays = new();
+    private bool _declareHolidayDialogVisible;
+    private int _holidayDialogMode = 0; // 0 = Declare Holiday, 1 = Remove Day / Clear Classes
+    private string _declareHolidayName = "University Holiday";
+    private string? _declareHolidayDesc;
+    private bool _clearDayClassesOnHoliday = true;
+    private bool _removeOnlineClassesOnHoliday = false;
+    private bool _markAsExcludedNonTeachingDay = false;
+
     private IEnumerable<DateTime> WeekendDates => Enumerable.Range(0, 4).Select(day => _weekendStart.AddDays(day));
     private IEnumerable<TimetablePlanItem> TimetablePlanForSelectedDate =>
         (_selectedTimetableVersion == 2 ? OfficialSem1Timetable : WeekendTimetable)
@@ -680,6 +868,7 @@
         _faculty = await FacultySvc.GetAllAsync();
         _courses = await CourseSvc.GetAllAsync();
         _selectedDate = WeekendDates.Contains(DateTime.Today) ? DateTime.Today : _weekendStart;
+        await RefreshHolidaysAsync();
         await LoadDayData();
     }
 
@@ -894,6 +1083,11 @@
 
     private async Task PrepareTimetableDay()
     {
+        if (IsHolidayDate(_selectedDate))
+        {
+            Snackbar.Add($"Notice: {_selectedDate:dddd, dd MMM} is marked as a Holiday ({GetHolidayName(_selectedDate)}). To hold regular classes, please first restore this day using the red button.", Severity.Warning);
+        }
+
         var plannedClasses = TimetablePlanForSelectedDate.ToList();
         if (!plannedClasses.Any())
         {
@@ -1082,14 +1276,108 @@
         return date.Date.AddDays(-daysSinceThursday);
     }
 
-    private static readonly Dictionary<DateTime, string> AcademicHolidays = new()
+    private async Task RefreshHolidaysAsync()
     {
-        { new DateTime(2026, 9, 14), "Ganesh Chaturthi" },
-        { new DateTime(2026, 9, 18), "Gouri Poojan" },
-        { new DateTime(2026, 9, 25), "Anant Chaturdashi" },
-        { new DateTime(2026, 10, 2), "Gandhi Jayanti" }
-    };
+        _holidays = await HolidaySvc.GetHolidaysDictAsync();
+    }
 
-    private static string? GetHolidayName(DateTime date) =>
-        AcademicHolidays.TryGetValue(date.Date, out var name) ? name : null;
+    private bool IsHolidayDate(DateTime date) => _holidays.ContainsKey(date.Date);
+
+    private string? GetHolidayName(DateTime date) => _holidays.GetValueOrDefault(date.Date);
+
+    private void OpenDeclareHolidayDialog()
+    {
+        _holidayDialogMode = 0;
+        if (IsHolidayDate(_selectedDate))
+        {
+            _declareHolidayName = GetHolidayName(_selectedDate) ?? "University Holiday";
+        }
+        else
+        {
+            _declareHolidayName = "University Holiday";
+        }
+        _declareHolidayDesc = null;
+        _clearDayClassesOnHoliday = true;
+        _removeOnlineClassesOnHoliday = false;
+        _markAsExcludedNonTeachingDay = false;
+        _declareHolidayDialogVisible = true;
+    }
+
+    private async Task ConfirmDeclareHolidayAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_declareHolidayName))
+        {
+            Snackbar.Add("Please specify a holiday reason or occasion.", Severity.Warning);
+            return;
+        }
+
+        try
+        {
+            await HolidaySvc.DeclareHolidayAsync(
+                _selectedDate,
+                _declareHolidayName,
+                _declareHolidayDesc,
+                isRemovedDay: false,
+                clearScheduledClasses: _clearDayClassesOnHoliday,
+                removeOnlineToo: _removeOnlineClassesOnHoliday);
+
+            await RefreshHolidaysAsync();
+            await LoadDayData();
+            _declareHolidayDialogVisible = false;
+            Snackbar.Add($"Declared {_selectedDate:dddd, dd MMM yyyy} as Holiday: {_declareHolidayName}.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task ConfirmRemoveDayAsync()
+    {
+        try
+        {
+            if (_markAsExcludedNonTeachingDay)
+            {
+                await HolidaySvc.DeclareHolidayAsync(
+                    _selectedDate,
+                    "Removed / Non-Teaching Day",
+                    "Explicitly removed from teaching schedule",
+                    isRemovedDay: true,
+                    clearScheduledClasses: true,
+                    removeOnlineToo: _removeOnlineClassesOnHoliday);
+            }
+            else
+            {
+                await HolidaySvc.RemoveDaySessionsAsync(_selectedDate, removeOnlineToo: _removeOnlineClassesOnHoliday);
+            }
+
+            await RefreshHolidaysAsync();
+            await LoadDayData();
+            _declareHolidayDialogVisible = false;
+            Snackbar.Add($"All classes for {_selectedDate:dddd, dd MMM yyyy} have been removed.", Severity.Warning);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task RevokeHolidayDirectAsync(DateTime date)
+    {
+        try
+        {
+            var removed = await HolidaySvc.RevokeHolidayAsync(date);
+            await RefreshHolidaysAsync();
+            await LoadDayData();
+            _declareHolidayDialogVisible = false;
+            if (removed)
+            {
+                Snackbar.Add($"Holiday revoked. {date:dddd, dd MMM yyyy} restored as regular instructional day.", Severity.Success);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
 }

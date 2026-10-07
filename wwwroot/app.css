@@ -1146,6 +1146,11 @@ h1, h2, h3, h4, h5, h6, .mud-typography-h1, .mud-typography-h2, .mud-typography-
 .selected-day-banner > div:nth-child(2) > strong { color: var(--brand-navy); font-size: .92rem; }
 .selected-day-banner__picker { width: 210px; margin-bottom: -2px !important; }
 .selected-day-banner__submit { min-width: 166px; font-size: .73rem !important; font-weight: 800 !important; text-transform: none !important; }
+.selected-day-banner__holiday-btn { min-width: 175px; font-size: .73rem !important; font-weight: 800 !important; text-transform: none !important; border-radius: 9999px !important; }
+.weekend-date-tab--holiday { border-color: #fecaca !important; background: #fff5f5 !important; }
+.weekend-date-tab--holiday span { color: #b91c1c !important; }
+.weekend-date-tab--holiday strong { color: #991b1b !important; }
+.weekend-date-tab--holiday.weekend-date-tab--active { background: linear-gradient(135deg, #b91c1c, #dc2626) !important; border-color: #991b1b !important; }
 .weekend-desk-tabs { overflow: hidden; border: 1px solid #dce8f1; border-radius: 22px; background: #fff; box-shadow: var(--card-shadow); }
 .weekend-desk-tabs .mud-tabs-toolbar { padding: 8px 10px 0; background: linear-gradient(110deg, #fbfdff, #f2f8fc); }
 .weekend-desk-tabs .mud-tab { min-height: 51px; border-radius: 13px 13px 0 0; color: #60788d; font-size: .78rem; font-weight: 800; text-transform: none; }
@@ -1623,6 +1628,7 @@ h1, h2, h3, h4, h5, h6, .mud-typography-h1, .mud-typography-h2, .mud-typography-
     .selected-day-banner > div:nth-child(2) { min-width: 170px; }
     .selected-day-banner__picker { width: 100%; }
     .selected-day-banner__submit { width: 100%; }
+    .selected-day-banner__holiday-btn { width: 100%; }
     .weekend-desk-tabs { border-radius: 18px; }
     .weekend-desk-tabs .mud-tabs-toolbar { overflow-x: auto; padding-right: 6px; padding-left: 6px; }
     .weekend-desk-tabs .mud-tab { min-width: max-content; font-size: .7rem; }

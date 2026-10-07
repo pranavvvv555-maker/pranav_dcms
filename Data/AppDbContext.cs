@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<StudentAssessmentMark> StudentAssessmentMarks => Set<StudentAssessmentMark>();
     public DbSet<MockInterviewDrive> MockInterviewDrives => Set<MockInterviewDrive>();
     public DbSet<MockInterviewEvaluation> MockInterviewEvaluations => Set<MockInterviewEvaluation>();
+    public DbSet<AcademicHoliday> AcademicHolidays => Set<AcademicHoliday>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -248,6 +249,14 @@ public class AppDbContext : DbContext
              .WithMany()
              .HasForeignKey(m => m.CourseId)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // AcademicHoliday
+        modelBuilder.Entity<AcademicHoliday>(e =>
+        {
+            e.HasIndex(h => h.Date).IsUnique();
+            e.Property(h => h.Name).HasMaxLength(200).IsRequired();
+            e.Property(h => h.Description).HasMaxLength(500);
         });
     }
 }

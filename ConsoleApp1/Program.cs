@@ -436,3 +436,4 @@ var lineItemsSum = db.PaymentLineItems.Where(l => l.PaymentPeriod.PeriodName == 
 
 Console.WriteLine($"Reseed successful! Sessions: {sessionsCount}, Total Hours: {totalHours}, Total Payment: Rs. {lineItemsSum}");
 
+
