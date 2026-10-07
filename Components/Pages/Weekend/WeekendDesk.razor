@@ -41,7 +41,7 @@
                            OnClick="@(() => SetSelectedDate(date))">
                     <span>@date.ToString("dddd")</span>
                     <strong>@date.ToString("dd MMM")</strong>
-                    <small>@(DaySessionCount(date)) classes</small>
+                    <small>@(DaySessionCount(date) > 0 ? $"{DaySessionCount(date)} classes" : (_selectedTimetableVersion == 1 && date.DayOfWeek == DayOfWeek.Thursday ? "Not in Legacy" : $"{DaySessionCount(date)} classes"))</small>
                 </MudButton>
             }
         </div>
@@ -91,11 +91,16 @@
                     <MudText Typo="Typo.body2">Prepare this day from the timetable, then edit any professor, subject, time, or class type. When every class is complete, submit the day to update attendance, reports, and payments.</MudText>
                 </div>
                 <div class="d-flex align-center gap-2 flex-wrap">
-                    <MudSelect T="int" @bind-Value="_selectedTimetableVersion" Label="Timetable Model" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="min-width: 280px; background: white;">
+                    <MudSelect T="int" Value="@_selectedTimetableVersion" ValueChanged="OnTimetableVersionChanged" Label="Timetable Model" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Style="min-width: 280px; background: white;">
                         <MudSelectItem Value="2">Official Academic (Thu–Sun, 28 Hrs)</MudSelectItem>
                         <MudSelectItem Value="1">Legacy Weekend (Fri–Sun, 23 Hrs)</MudSelectItem>
                     </MudSelect>
-                    <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.AddTask" OnClick="PrepareTimetableDay">Prepare this day</MudButton>
+                    <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" StartIcon="@Icons.Material.Filled.AddTask" OnClick="PrepareTimetableDay">
+                        @(!TimetablePlanForSelectedDate.Any() && _selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday ? "Go to Friday to prepare" : "Prepare this day")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CalendarViewMonth" OnClick="@(() => _fullScheduleDialogVisible = true)">
+                        View Full Schedule
+                    </MudButton>
                 </div>
                 @if (_daySessions.Any())
                 {
@@ -150,13 +155,50 @@
             }
             else
             {
-                <div class="weekend-desk-empty">
-                    <MudIcon Icon="@Icons.Material.Filled.EventBusy" />
-                    <div>
-                        <MudText Typo="Typo.subtitle1">No timetable is set for this date</MudText>
-                        <MudText Typo="Typo.body2">Choose Friday, Saturday, or Sunday to load the weekend timetable.</MudText>
+                @if (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
+                {
+                    <div class="weekend-desk-empty" style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:12px; padding:28px 20px;">
+                        <MudIcon Icon="@Icons.Material.Filled.Info" Color="Color.Primary" Size="Size.Large" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:800; color:#1e293b;">
+                                Thursday is not an instructional day in the Legacy Weekend timetable
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="color:#64748b; max-width:620px; margin:6px auto 16px;">
+                                The Legacy Weekend timetable was conducted strictly on <b>Friday, Saturday, and Sunday (23 instructional hours)</b>. Thursday teaching was introduced under the <b>AY 2026-27 Official Academic model (28 hours)</b>.
+                            </MudText>
+                            <div class="d-flex justify-center gap-2 flex-wrap">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.ArrowForward"
+                                           OnClick="@(() => SetSelectedDate(_weekendStart.AddDays(1)))">
+                                    View Friday, @_weekendStart.AddDays(1).ToString("dd MMM") (Legacy Classes)
+                                </MudButton>
+                                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.SwapHoriz"
+                                           OnClick="@(() => OnTimetableVersionChanged(2))">
+                                    Switch to Official Model (Thu–Sun)
+                                </MudButton>
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CalendarViewMonth"
+                                           OnClick="@(() => _fullScheduleDialogVisible = true)">
+                                    View Full Legacy Schedule
+                                </MudButton>
+                            </div>
+                        </div>
                     </div>
-                </div>
+                }
+                else
+                {
+                    <div class="weekend-desk-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.EventBusy" />
+                        <div>
+                            <MudText Typo="Typo.subtitle1">No timetable is set for this date</MudText>
+                            <MudText Typo="Typo.body2">Choose Friday, Saturday, or Sunday to load the weekend timetable.</MudText>
+                        </div>
+                        <div class="mt-2">
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.CalendarViewMonth"
+                                       OnClick="@(() => _fullScheduleDialogVisible = true)">
+                                View Full Timetable Schedule
+                            </MudButton>
+                        </div>
+                    </div>
+                }
             }
         </MudTabPanel>
 
@@ -525,6 +567,61 @@
     </DialogActions>
 </MudDialog>
 
+<MudDialog @bind-Visible="_fullScheduleDialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseButton = true })">
+    <TitleContent>
+        <div class="dialog-title-simple">
+            <span class="dialog-title-simple__icon dialog-title-simple__icon--blue">
+                <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" />
+            </span>
+            <div>
+                <MudText Typo="Typo.h6">@(_selectedTimetableVersion == 1 ? "Legacy Weekend Timetable (Fri–Sun, 23 Hrs)" : "Official Academic Timetable (Thu–Sun, 28 Hrs)")</MudText>
+                <MudText Typo="Typo.caption">Full instructional schedule across all teaching days</MudText>
+            </div>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="d-flex align-center justify-space-between flex-wrap gap-2 mb-3 p-2 rounded" style="background:#f1f5f9; border:1px solid #cbd5e1;">
+            <span style="font-weight:700; font-size:0.82rem; color:#1e293b;">Switch Model:</span>
+            <MudRadioGroup T="int" Value="@_selectedTimetableVersion" ValueChanged="OnTimetableVersionChanged">
+                <MudRadio Value="2" Color="Color.Primary" Dense="true">Official Academic (Thu–Sun, 28 Hrs)</MudRadio>
+                <MudRadio Value="1" Color="Color.Secondary" Dense="true">Legacy Weekend (Fri–Sun, 23 Hrs)</MudRadio>
+            </MudRadioGroup>
+        </div>
+
+        <MudTabs Rounded="true" Elevation="0" ApplyEffectsToContainer="true">
+            @foreach (var dayGroup in (_selectedTimetableVersion == 1 ? WeekendTimetable : OfficialSem1Timetable).GroupBy(x => x.Day).OrderBy(g => g.Key == DayOfWeek.Thursday ? 0 : g.Key == DayOfWeek.Friday ? 1 : g.Key == DayOfWeek.Saturday ? 2 : 3))
+            {
+                <MudTabPanel Text="@($"{dayGroup.Key} ({dayGroup.Count()} classes)")">
+                    <div class="simple-table mt-2">
+                        <MudTable Items="@dayGroup" Dense="true" Hover="true" Elevation="0">
+                            <HeaderContent>
+                                <MudTh>Time</MudTh>
+                                <MudTh>Subject</MudTh>
+                                <MudTh>Class Type</MudTh>
+                                <MudTh>Faculty</MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd><b>@FormatTime(context.StartTime) – @FormatTime(context.EndTime)</b></MudTd>
+                                <MudTd>
+                                    <div>@context.CourseName</div>
+                                    <small style="color:#64748b;">@context.CourseCode</small>
+                                </MudTd>
+                                <MudTd>
+                                    <span class="@($"type-pill type-pill--{context.SessionType.ToLowerInvariant()}")">@context.SessionType</span>
+                                </MudTd>
+                                <MudTd>@context.FacultyLabel</MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </div>
+                </MudTabPanel>
+            }
+        </MudTabs>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Filled" Class="btn-gradient-primary" OnClick="@(() => _fullScheduleDialogVisible = false)">Close</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private readonly List<Session> _daySessions = new();
     private Dictionary<DateTime, int> _weekendSessionCounts = new();
@@ -540,6 +637,7 @@
     private bool _logDialogVisible;
     private bool _attendanceDialogVisible;
     private bool _submitDayDialogVisible;
+    private bool _fullScheduleDialogVisible;
     private int? _editingSessionId;
     private DateTime? _newSessionDate;
     private int _newSessionFacultyId;
@@ -585,6 +683,21 @@
         await LoadDayData();
     }
 
+    private async Task OnTimetableVersionChanged(int version)
+    {
+        _selectedTimetableVersion = version;
+        if (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
+        {
+            // Auto switch to Friday so user immediately sees Legacy classes
+            await SetSelectedDate(_weekendStart.AddDays(1));
+            Snackbar.Add("Switched to Friday (Legacy Weekend schedule runs Friday, Saturday & Sunday).", Severity.Info);
+        }
+        else
+        {
+            StateHasChanged();
+        }
+    }
+
     private async Task LoadDayData()
     {
         _daySessions.Clear();
@@ -605,13 +718,19 @@
     private async Task ShiftWeekend(int days)
     {
         _weekendStart = _weekendStart.AddDays(days);
-        await SetSelectedDate(_weekendStart);
+        var targetDate = (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
+            ? _weekendStart.AddDays(1)
+            : _weekendStart;
+        await SetSelectedDate(targetDate);
     }
 
     private async Task ShowCurrentWeekend()
     {
         _weekendStart = MostRecentThursday(DateTime.Today);
-        await SetSelectedDate(WeekendDates.Contains(DateTime.Today) ? DateTime.Today : _weekendStart);
+        var targetDate = (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
+            ? _weekendStart.AddDays(1)
+            : (WeekendDates.Contains(DateTime.Today) ? DateTime.Today : _weekendStart);
+        await SetSelectedDate(targetDate);
     }
 
     private async Task SetSelectedDate(DateTime date)
@@ -778,15 +897,25 @@
         var plannedClasses = TimetablePlanForSelectedDate.ToList();
         if (!plannedClasses.Any())
         {
-            Snackbar.Add("The timetable is available for Friday, Saturday, and Sunday.", Severity.Info);
-            return;
+            if (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
+            {
+                await SetSelectedDate(_weekendStart.AddDays(1)); // Switch to Friday
+                Snackbar.Add("Switched to Friday (04 Sep). Now preparing Friday classes...", Severity.Info);
+                plannedClasses = TimetablePlanForSelectedDate.ToList();
+            }
+            else
+            {
+                Snackbar.Add("No timetable is set for this date. The schedule is available for Friday, Saturday, and Sunday.", Severity.Info);
+                return;
+            }
         }
 
         var added = 0;
         foreach (var plannedClass in plannedClasses)
         {
-            var course = _courses.FirstOrDefault(item => item.CourseCode == plannedClass.CourseCode);
-            var faculty = _faculty.FirstOrDefault(item => item.FullName == plannedClass.DefaultFacultyName && item.IsActive);
+            var course = _courses.FirstOrDefault(item => string.Equals(item.CourseCode, plannedClass.CourseCode, StringComparison.OrdinalIgnoreCase));
+            var faculty = _faculty.FirstOrDefault(item => string.Equals(item.FullName, plannedClass.DefaultFacultyName, StringComparison.OrdinalIgnoreCase) && item.IsActive)
+                ?? _faculty.FirstOrDefault(item => item.FullName.Contains(plannedClass.DefaultFacultyName.Split(' ').Last(), StringComparison.OrdinalIgnoreCase) && item.IsActive);
             var alreadyPrepared = _daySessions.Any(session =>
                 session.ActualStartTime == plannedClass.StartTime &&
                 session.ActualEndTime == plannedClass.EndTime);
@@ -801,14 +930,14 @@
                 ActualStartTime = plannedClass.StartTime,
                 ActualEndTime = plannedClass.EndTime,
                 SessionType = plannedClass.SessionType,
-                Notes = "Prepared from the weekend timetable.",
+                Notes = $"Prepared from the {(_selectedTimetableVersion == 1 ? "Legacy Weekend" : "Official Academic")} timetable.",
                 LoggedBy = "Administrator"
             });
             added++;
         }
 
         await LoadDayData();
-        Snackbar.Add(added > 0 ? $"{added} timetable classes prepared. Edit any class if there is a substitution." : "This day is already prepared.", added > 0 ? Severity.Success : Severity.Info);
+        Snackbar.Add(added > 0 ? $"{added} timetable classes prepared for {_selectedDate:dddd, dd MMM}." : "This day's classes are already prepared.", added > 0 ? Severity.Success : Severity.Info);
     }
 
     private async Task DeleteSession(int sessionId)
