@@ -16,6 +16,7 @@ public static class SeedData
             await EnsureAssessmentsAsync(db);
             await EnsureMockInterviewsAsync(db);
             await EnsureAugust2026SessionsAsync(db);
+            await EnsureSeptemberEarly2026SessionsAsync(db);
             await EnsureSeptemberOctober2026SessionsAsync(db);
             await EnsureInductionStudentsAsync(db);
             await EnsureAcademicHolidaysAsync(db);
@@ -85,6 +86,7 @@ public static class SeedData
         await EnsureAssessmentsAsync(db);
         await EnsureMockInterviewsAsync(db);
         await EnsureAugust2026SessionsAsync(db);
+        await EnsureSeptemberEarly2026SessionsAsync(db);
         await EnsureSeptemberOctober2026SessionsAsync(db);
     }
 
@@ -848,6 +850,297 @@ public static class SeedData
             db.Sessions.AddRange(sessionsToSeed);
             await db.SaveChangesAsync();
         }
+    }
+
+    private static async Task EnsureSeptemberEarly2026SessionsAsync(AppDbContext db)
+    {
+        var sem = await db.Semesters.FirstOrDefaultAsync(s => s.IsActive) ?? await db.Semesters.FirstOrDefaultAsync();
+        if (sem == null) return;
+
+        var startDate = new DateTime(2026, 9, 2);
+        var endDate = new DateTime(2026, 9, 4);
+
+        var existingSessions = await db.Sessions
+            .Where(s => s.Date >= startDate && s.Date <= endDate)
+            .ToListAsync();
+
+        var periodName = "02 September - 04 September 2026";
+        var period = await db.PaymentPeriods.FirstOrDefaultAsync(p => p.PeriodName == periodName || (p.StartDate == startDate && p.EndDate == endDate));
+        var existingLineItems = period != null
+            ? await db.PaymentLineItems.Where(l => l.PaymentPeriodId == period.Id).ToListAsync()
+            : new List<PaymentLineItem>();
+
+        if (existingSessions.Count == 26 && existingSessions.Sum(s => s.DurationHours) == 26.0m
+            && existingLineItems.Any() && existingLineItems.Sum(l => l.TotalHours) == 26.0m)
+        {
+            return;
+        }
+
+        if (existingSessions.Any())
+        {
+            var sessionIds = existingSessions.Select(s => s.Id).ToList();
+            var att = await db.SessionAttendances.Where(a => sessionIds.Contains(a.SessionId)).ToListAsync();
+            if (att.Any()) db.SessionAttendances.RemoveRange(att);
+            db.Sessions.RemoveRange(existingSessions);
+            await db.SaveChangesAsync();
+        }
+
+        var courses = await db.Courses.ToListAsync();
+        var faculties = await db.Faculties.ToListAsync();
+
+        var navadagi = faculties.FirstOrDefault(f => f.FullName.Contains("Navadagi"));
+        var subodh = faculties.FirstOrDefault(f => f.FullName.Contains("Subodh"));
+        var shashidhar = faculties.FirstOrDefault(f => f.FullName.Contains("Shashidhar"));
+        var gutte = faculties.FirstOrDefault(f => f.FullName.Contains("Gutte"));
+        var hambarde = faculties.FirstOrDefault(f => f.FullName.Contains("Hambarde"));
+        var birajdar = faculties.FirstOrDefault(f => f.FullName.Contains("Birajdar"));
+        var bankolli = faculties.FirstOrDefault(f => f.FullName.Contains("Bankolli"));
+        var siddu = faculties.FirstOrDefault(f => f.FullName.Contains("Siddu"));
+        var yatharth = faculties.FirstOrDefault(f => f.FullName.Contains("Yatharth")) ?? shashidhar;
+
+        var cds40010 = courses.FirstOrDefault(c => c.CourseCode == "CDS40010");
+        var cds40020 = courses.FirstOrDefault(c => c.CourseCode == "CDS40020");
+        var cds40030 = courses.FirstOrDefault(c => c.CourseCode == "CDS40030");
+        var pce10040 = courses.FirstOrDefault(c => c.CourseCode == "PCE10040");
+        var yog10030 = courses.FirstOrDefault(c => c.CourseCode == "YOG10030");
+        var mec51050 = courses.FirstOrDefault(c => c.CourseCode == "MEC51050");
+        var mec50010 = courses.FirstOrDefault(c => c.CourseCode == "MEC50010");
+
+        var sessionsToSeed = new List<Session>();
+
+        // Day 1: 02 September 2026 (Wednesday) - 9 Hours (Friday Schedule of AY 2026-27 26h Timetable)
+        var d1 = new DateTime(2026, 9, 2);
+        // 08:30 - 09:30 AM (GB) Lecture
+        if (birajdar != null && mec50010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = birajdar.Id, CourseId = mec50010.Id, ActualStartTime = new(8, 30, 0), ActualEndTime = new(9, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "AM Lecture" });
+        // 09:30 - 10:30 RM (VG) Lecture
+        if (gutte != null && mec51050 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = gutte.Id, CourseId = mec51050.Id, ActualStartTime = new(9, 30, 0), ActualEndTime = new(10, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "RM Lecture" });
+        // 10:45 - 11:45 RM (MDH) Tutorial
+        if (hambarde != null && mec51050 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = hambarde.Id, CourseId = mec51050.Id, ActualStartTime = new(10, 45, 0), ActualEndTime = new(11, 45, 0), DurationHours = 1.0m, SessionType = "Tutorial", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "RM Tutorial" });
+        // 11:45 - 12:45 AM (GB) Tutorial
+        if (birajdar != null && mec50010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = birajdar.Id, CourseId = mec50010.Id, ActualStartTime = new(11, 45, 0), ActualEndTime = new(12, 45, 0), DurationHours = 1.0m, SessionType = "Tutorial", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "AM Tutorial" });
+        // 01:30 - 02:30 ADC & CIE (VMB) Lecture
+        if (bankolli != null && cds40010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = bankolli.Id, CourseId = cds40010.Id, ActualStartTime = new(13, 30, 0), ActualEndTime = new(14, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ADC & CIE Lecture" });
+        // 02:30 - 03:30 ADC & CIE (VMB) Lecture
+        if (bankolli != null && cds40010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = bankolli.Id, CourseId = cds40010.Id, ActualStartTime = new(14, 30, 0), ActualEndTime = new(15, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ADC & CIE Lecture" });
+        // 03:45 - 04:45 ADC & CIE Lab (SP) Practical
+        if (siddu != null && cds40010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = siddu.Id, CourseId = cds40010.Id, ActualStartTime = new(15, 45, 0), ActualEndTime = new(16, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ADC & CIE Lab" });
+        // 04:45 - 05:45 ADC & CIE Lab (SP) Practical
+        if (siddu != null && cds40010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = siddu.Id, CourseId = cds40010.Id, ActualStartTime = new(16, 45, 0), ActualEndTime = new(17, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ADC & CIE Lab" });
+        // 05:45 - 06:45 ADC & CIE (VMB) Lecture
+        if (bankolli != null && cds40010 != null)
+            sessionsToSeed.Add(new Session { Date = d1, FacultyId = bankolli.Id, CourseId = cds40010.Id, ActualStartTime = new(17, 45, 0), ActualEndTime = new(18, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ADC & CIE Lecture" });
+
+        // Day 2: 03 September 2026 (Thursday) - 8 Hours (Saturday Schedule of AY 2026-27 26h Timetable)
+        var d2 = new DateTime(2026, 9, 3);
+        // 08:30 - 09:30 Yoga (YV) Practical
+        if (yatharth != null && yog10030 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = yatharth.Id, CourseId = yog10030.Id, ActualStartTime = new(8, 30, 0), ActualEndTime = new(9, 30, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Yoga Session" });
+        // 09:30 - 10:30 SSM (SR) Lecture
+        if (shashidhar != null && pce10040 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = shashidhar.Id, CourseId = pce10040.Id, ActualStartTime = new(9, 30, 0), ActualEndTime = new(10, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "SSM Lecture" });
+        // 10:45 - 11:45 AM (GB) Lecture
+        if (birajdar != null && mec50010 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = birajdar.Id, CourseId = mec50010.Id, ActualStartTime = new(10, 45, 0), ActualEndTime = new(11, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "AM Lecture" });
+        // 11:45 - 12:45 RM (MDH) Lecture
+        if (hambarde != null && mec51050 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = hambarde.Id, CourseId = mec51050.Id, ActualStartTime = new(11, 45, 0), ActualEndTime = new(12, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "RM Lecture" });
+        // 01:30 - 02:30 Project Lab-I (SBP) Practical
+        if (subodh != null && cds40030 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = subodh.Id, CourseId = cds40030.Id, ActualStartTime = new(13, 30, 0), ActualEndTime = new(14, 30, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Project Lab-I" });
+        // 02:30 - 03:30 Project Lab-I (SBP) Practical
+        if (subodh != null && cds40030 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = subodh.Id, CourseId = cds40030.Id, ActualStartTime = new(14, 30, 0), ActualEndTime = new(15, 30, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Project Lab-I" });
+        // 03:45 - 04:45 Project Lab-I (SBP) Practical
+        if (subodh != null && cds40030 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = subodh.Id, CourseId = cds40030.Id, ActualStartTime = new(15, 45, 0), ActualEndTime = new(16, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Project Lab-I" });
+        // 04:45 - 05:45 Project Lab-I (SBP) Practical
+        if (subodh != null && cds40030 != null)
+            sessionsToSeed.Add(new Session { Date = d2, FacultyId = subodh.Id, CourseId = cds40030.Id, ActualStartTime = new(16, 45, 0), ActualEndTime = new(17, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Project Lab-I" });
+
+        // Day 3: 04 September 2026 (Friday) - 9 Hours (Sunday Schedule of AY 2026-27 26h Timetable)
+        var d3 = new DateTime(2026, 9, 4);
+        // 08:30 - 09:30 Yoga (YV) Practical
+        if (yatharth != null && yog10030 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = yatharth.Id, CourseId = yog10030.Id, ActualStartTime = new(8, 30, 0), ActualEndTime = new(9, 30, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Yoga Session" });
+        // 09:30 - 10:30 SSM (SR) Lecture
+        if (shashidhar != null && pce10040 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = shashidhar.Id, CourseId = pce10040.Id, ActualStartTime = new(9, 30, 0), ActualEndTime = new(10, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "SSM Lecture" });
+        // 10:45 - 11:45 RM (VG) Lecture
+        if (gutte != null && mec51050 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = gutte.Id, CourseId = mec51050.Id, ActualStartTime = new(10, 45, 0), ActualEndTime = new(11, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "RM Lecture" });
+        // 11:45 - 12:45 AM (GB) Lecture
+        if (birajdar != null && mec50010 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = birajdar.Id, CourseId = mec50010.Id, ActualStartTime = new(11, 45, 0), ActualEndTime = new(12, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "AM Lecture" });
+        // 01:30 - 02:30 ACC & DSS (VPN) Lecture
+        if (navadagi != null && cds40020 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = navadagi.Id, CourseId = cds40020.Id, ActualStartTime = new(13, 30, 0), ActualEndTime = new(14, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ACC & DSS Lecture" });
+        // 02:30 - 03:30 ACC & DSS (VPN) Lecture
+        if (navadagi != null && cds40020 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = navadagi.Id, CourseId = cds40020.Id, ActualStartTime = new(14, 30, 0), ActualEndTime = new(15, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ACC & DSS Lecture" });
+        // 03:45 - 04:45 ACC & DSS Lab (VPN) Practical
+        if (navadagi != null && cds40020 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = navadagi.Id, CourseId = cds40020.Id, ActualStartTime = new(15, 45, 0), ActualEndTime = new(16, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ACC & DSS Lab" });
+        // 04:45 - 05:45 ACC & DSS Lab (VPN) Practical
+        if (navadagi != null && cds40020 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = navadagi.Id, CourseId = cds40020.Id, ActualStartTime = new(16, 45, 0), ActualEndTime = new(17, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ACC & DSS Lab" });
+        // 05:45 - 06:45 ACC & DSS (VPN) Lecture
+        if (navadagi != null && cds40020 != null)
+            sessionsToSeed.Add(new Session { Date = d3, FacultyId = navadagi.Id, CourseId = cds40020.Id, ActualStartTime = new(17, 45, 0), ActualEndTime = new(18, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ACC & DSS Lecture" });
+
+        db.Sessions.AddRange(sessionsToSeed);
+        await db.SaveChangesAsync();
+
+        // Attendance
+        var students = await db.Students.Where(s => s.SemesterId == sem.Id).ToListAsync();
+        if (students.Any())
+        {
+            var attendances = new List<SessionAttendance>();
+            foreach (var session in sessionsToSeed)
+            {
+                foreach (var student in students)
+                {
+                    attendances.Add(new SessionAttendance
+                    {
+                        SessionId = session.Id,
+                        StudentId = student.Id,
+                        IsPresent = true,
+                        RecordedAt = session.Date.Add(session.ActualEndTime)
+                    });
+                }
+            }
+            db.SessionAttendances.AddRange(attendances);
+            await db.SaveChangesAsync();
+        }
+
+        // Payment Period for Sep 02 - 04
+        if (period == null)
+        {
+            period = new PaymentPeriod
+            {
+                PeriodName = periodName,
+                StartDate = startDate,
+                EndDate = endDate,
+                Status = PaymentPeriodStatus.Calculated,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.PaymentPeriods.Add(period);
+            await db.SaveChangesAsync();
+        }
+
+        if (existingLineItems.Any())
+        {
+            db.PaymentLineItems.RemoveRange(existingLineItems);
+            await db.SaveChangesAsync();
+        }
+
+        var conductedAll = await db.Sessions
+            .Where(s => s.Date >= startDate && s.Date <= endDate && s.Status == SessionStatus.Conducted && s.IsApproved)
+            .Include(s => s.Course)
+            .ToListAsync();
+
+        var rmSessions = conductedAll
+            .Where(s => (s.FacultyId == hambarde?.Id || s.FacultyId == gutte?.Id)
+                && (s.Course?.CourseCode == "MEC51050" || s.Course?.CourseName?.Contains("Research Methodology", StringComparison.OrdinalIgnoreCase) == true))
+            .ToList();
+
+        var totalRmHours = rmSessions.Sum(s => s.DurationHours); // 4.0m
+        var halfRmHours = totalRmHours * 0.5m; // 2.0m
+
+        var conductedByFaculty = conductedAll
+            .GroupBy(s => s.FacultyId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var allFacultyIds = faculties.Where(f => f.IsActive).Select(f => f.Id).ToList();
+
+        foreach (var facId in allFacultyIds)
+        {
+            conductedByFaculty.TryGetValue(facId, out var fSessions);
+            fSessions ??= new List<Session>();
+
+            if (facId == hambarde?.Id)
+            {
+                var nonRm = fSessions.Where(s => !rmSessions.Contains(s)).ToList();
+                var totHours = nonRm.Sum(s => s.DurationHours) + halfRmHours;
+                if (totHours > 0)
+                {
+                    var gross = totHours * 1200.0m;
+                    db.PaymentLineItems.Add(new PaymentLineItem
+                    {
+                        PaymentPeriodId = period.Id,
+                        FacultyId = facId,
+                        TotalHours = totHours,
+                        HourlyRate = 1200.0m,
+                        GrossAmount = gross,
+                        Deductions = 0m,
+                        NetPayable = gross,
+                        LectureCount = (int)Math.Round(totHours),
+                        LectureRate = 1200.0m,
+                        PracticalCount = 0,
+                        PracticalRate = 1200.0m,
+                        Notes = $"Research Methodology (MEC51050) - 50% Co-Teaching Allocation ({halfRmHours:0.#} hrs)"
+                    });
+                }
+            }
+            else if (facId == gutte?.Id)
+            {
+                var nonRm = fSessions.Where(s => !rmSessions.Contains(s)).ToList();
+                var nonRmHours = nonRm.Sum(s => s.DurationHours);
+                var totHours = nonRmHours + halfRmHours;
+                if (totHours > 0)
+                {
+                    var gross = totHours * 1200.0m;
+                    db.PaymentLineItems.Add(new PaymentLineItem
+                    {
+                        PaymentPeriodId = period.Id,
+                        FacultyId = facId,
+                        TotalHours = totHours,
+                        HourlyRate = 1200.0m,
+                        GrossAmount = gross,
+                        Deductions = 0m,
+                        NetPayable = gross,
+                        LectureCount = (int)Math.Round(totHours),
+                        LectureRate = 1200.0m,
+                        PracticalCount = 0,
+                        PracticalRate = 1200.0m,
+                        Notes = $"RM Co-Teaching 50% Allocation ({halfRmHours:0.#} hrs)"
+                    });
+                }
+            }
+            else
+            {
+                var totHours = fSessions.Sum(s => s.DurationHours);
+                if (totHours > 0)
+                {
+                    var lecCount = fSessions.Count(s => s.SessionType == "Lecture" || s.SessionType == "Tutorial");
+                    var pracCount = fSessions.Count - lecCount;
+                    var gross = totHours * 1200.0m;
+                    db.PaymentLineItems.Add(new PaymentLineItem
+                    {
+                        PaymentPeriodId = period.Id,
+                        FacultyId = facId,
+                        TotalHours = totHours,
+                        HourlyRate = 1200.0m,
+                        GrossAmount = gross,
+                        Deductions = 0m,
+                        NetPayable = gross,
+                        LectureCount = lecCount,
+                        LectureRate = 1200.0m,
+                        PracticalCount = pracCount,
+                        PracticalRate = 1200.0m,
+                        Notes = "Teaching honorarium for AY 2026-27 Sem-I (26 Hrs Timetable Block)"
+                    });
+                }
+            }
+        }
+        await db.SaveChangesAsync();
     }
 
     private static async Task EnsureSeptemberOctober2026SessionsAsync(AppDbContext db)
