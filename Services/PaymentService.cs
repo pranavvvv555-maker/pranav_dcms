@@ -1427,11 +1427,11 @@ public class PaymentService(AppDbContext db)
         var gutteBytes = GenerateRm5050ReceiptsPdf(webRootPath, "Gutte");
         File.WriteAllBytes(Path.Combine(outputDir, "Dr_Vitthal_Gutte_RM_50_50_Receipt_04Sep_to_04Oct_2026.pdf"), gutteBytes);
 
-        var cover5Bytes = GenerateSelected5ReceiptsCoverPagePdf(webRootPath);
-        File.WriteAllBytes(Path.Combine(outputDir, "Executive_Cover_Page_5_Selected_Receipts_04Sep_to_04Oct_2026.pdf"), cover5Bytes);
+        var cover6Bytes = GenerateSelected6ReceiptsCoverPagePdf(webRootPath);
+        File.WriteAllBytes(Path.Combine(outputDir, "Executive_Cover_Page_6_Receipts_04Sep_to_04Oct_2026.pdf"), cover6Bytes);
     }
 
-    public byte[] GenerateSelected5ReceiptsCoverPagePdf(string? webRootPath = null)
+    public byte[] GenerateSelected6ReceiptsCoverPagePdf(string? webRootPath = null)
     {
         var items = new List<ExecutiveSanctionFacultyItem>
         {
@@ -1443,7 +1443,7 @@ public class PaymentService(AppDbContext db)
                 "NIRVAA",
                 "NIRVAA / Cloud Architect",
                 "Advanced Cloud Computing & Data Storage System (CDS40020)",
-                "23 Sessions (13 Theory Lectures + 10 Practical Labs · Thu & Sun)",
+                "23 Sessions Conducted (13 Theory Lectures + 10 Practical Labs · Thu & Sun)",
                 23.0m,
                 1200m,
                 27600m),
@@ -1455,7 +1455,7 @@ public class PaymentService(AppDbContext db)
                 "NIRVAA",
                 "NIRVAA / Yoga Teacher",
                 "Yoga (YOG10030), Scientific Studies of Mind, Matter, Spirit & Consciousness (PCE10040)",
-                "20 Sessions (10 Theory Lectures + 10 Practical Labs · Sat & Sun, 8:30–10:30 AM)",
+                "20 Sessions Conducted (10 Theory Lectures + 10 Practical Labs · Sat & Sun, 8:30–10:30 AM)",
                 20.0m,
                 1200m,
                 24000m),
@@ -1467,7 +1467,7 @@ public class PaymentService(AppDbContext db)
                 "NIRVAA",
                 "NIRVAA / Project Manager",
                 "Project Lab-I (CDS40030)",
-                "20 Sessions (20 Practical Labs · Sat & Sun)",
+                "20 Sessions Conducted (20 Practical Labs · Sat & Sun)",
                 20.0m,
                 1200m,
                 24000m),
@@ -1479,7 +1479,7 @@ public class PaymentService(AppDbContext db)
                 "MIT-WPU",
                 "MIT-WPU / Professor",
                 "Advanced Mathematics (MEC50010)",
-                "13 Sessions (9 Theory Lectures + 4 Tutorials · Fri, Sat & Sun · Excl. Holidays & 03 Oct Sub)",
+                "13 Sessions Conducted (9 Theory Lectures + 4 Tutorials · Fri, Sat & Sun · Excl. Holidays & 03 Oct Sub)",
                 13.0m,
                 1200m,
                 15600m),
@@ -1494,15 +1494,27 @@ public class PaymentService(AppDbContext db)
                 "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
                 6.0m,
                 1200m,
+                7200m),
+            new(
+                6,
+                "VOUCH-004",
+                4,
+                "Dr. Vitthal Gutte",
+                "MIT-WPU",
+                "MIT-WPU / Visiting Faculty (Professor)",
+                "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]",
+                "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
+                6.0m,
+                1200m,
                 7200m)
         };
 
-        var totalHours = items.Sum(x => x.Hours); // 82.0h
-        var totalAmount = items.Sum(x => x.PayableAmount); // INR 98,400
+        var totalHours = items.Sum(x => x.Hours); // 88.0h
+        var totalAmount = items.Sum(x => x.PayableAmount); // INR 105,600
         var amountInWords = NumberToWordsINR(totalAmount);
         var cycle = "04 Sep 2026 – 04 Oct 2026";
 
-        var narrative = "Submitted for executive approval is the audited faculty remuneration schedule and individual signed payment vouchers from the Department & Course Management System (DCMS) for sessions conducted strictly during the 04 Sep 2026 – 04 Oct 2026 billing cycle under the MIT-WPU × NIRVAA M.Tech in DCSE program. All 82 teaching hours across the 5 enclosed vouchers have been verified against the Old Timetable (04–06 Sep) and New Timetable (10 Sep – 04 Oct), with university holidays (18 Sep, 25 Sep, 02 Oct) and the 03 Oct substitution strictly accounted for at the approved rate of INR 1,200/hr. Specifically, Dr. Ganesh Birajdar conducted 13.0 hours (INR 15,600/-) in Advanced Mathematics (MEC50010), while Dr. M. D. Hambarde is billed for 6.0 hours (INR 7,200/-) under the 50-50 co-teaching split of 12 Research Methodology (MEC51050) sessions.";
+        var narrative = "Submitted for executive approval is the audited faculty remuneration schedule and individual signed payment vouchers from the Department & Course Management System (DCMS) for sessions conducted strictly during the 04 Sep 2026 – 04 Oct 2026 billing cycle under the MIT-WPU × NIRVAA M.Tech in DCSE program. All 88 teaching hours across the 6 enclosed faculty vouchers have been verified against the Old Timetable (04–06 Sep) and New Timetable (10 Sep – 04 Oct), with university holidays (18 Sep, 25 Sep, 02 Oct) and the 03 Oct substitution strictly accounted for at the approved rate of INR 1,200/hr. Specifically, Dr. Ganesh Birajdar conducted 13.0 hours (INR 15,600/-) in Advanced Mathematics (MEC50010), while Dr. M. D. Hambarde and Dr. Vitthal Gutte are each billed for 6.0 hours (INR 7,200/- each) under the 50-50 co-teaching split of 12 Research Methodology (MEC51050) sessions.";
 
         var approvalMatrix = new List<ExecutiveSignatory>
         {
@@ -1528,7 +1540,7 @@ public class PaymentService(AppDbContext db)
             totalAmount,
             amountInWords,
             "Cash / Bank Transfer",
-            "(1) Signed DCMS Vouchers VOUCH-005 to VOUCH-013 (5 Enclosed Vouchers) | (2) Student Attendance Logs | (3) Weekly Conduction Audit",
+            "(1) Signed DCMS Vouchers VOUCH-004 to VOUCH-013 (6 Enclosed Vouchers) | (2) Student Attendance Logs | (3) Weekly Conduction Audit",
             approvalMatrix);
 
         return GenerateExecutiveSanctionCoverPagePdf(sanctionData, webRootPath);
