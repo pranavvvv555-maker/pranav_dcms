@@ -9,7 +9,7 @@ public class FacultyService(AppDbContext db)
     public const decimal DefaultClassRateINR = 1200m;
 
     public async Task<List<Faculty>> GetAllAsync()
-        => await db.Faculties.OrderBy(f => f.FullName).ToListAsync();
+        => await db.Faculties.Where(f => f.IsActive).OrderBy(f => f.FullName).ToListAsync();
 
     public async Task<Faculty?> GetByIdAsync(int id)
         => await db.Faculties.Include(f => f.Rates).FirstOrDefaultAsync(f => f.Id == id);

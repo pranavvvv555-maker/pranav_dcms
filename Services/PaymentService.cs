@@ -156,7 +156,7 @@ public class PaymentService(AppDbContext db)
     public async Task<List<PaymentLineItem>> GetLineItemsAsync(int periodId)
         => await db.PaymentLineItems
             .Include(p => p.Faculty)
-            .Where(p => p.PaymentPeriodId == periodId)
+            .Where(p => p.PaymentPeriodId == periodId && p.Faculty.IsActive)
             .OrderBy(p => p.Faculty.FullName)
             .ToListAsync();
 
@@ -241,7 +241,7 @@ public class PaymentService(AppDbContext db)
             .Where(slot => slot.FacultyId != null)
             .ToListAsync();
         var persisted = allSlots
-            .Where(slot => slot.Faculty != null && slot.StartTime < slot.EndTime)
+            .Where(slot => slot.Faculty != null && slot.Faculty.IsActive && slot.StartTime < slot.EndTime)
             .ToList();
         if (persisted.Count > 0)
         {
@@ -268,6 +268,7 @@ public class PaymentService(AppDbContext db)
 
         var facultyByName = activeFaculty.ToDictionary(item => item.FullName, StringComparer.OrdinalIgnoreCase);
         var forecasts = TimetablePaymentPlan
+            .Where(item => facultyByName.ContainsKey(item.FacultyName))
             .GroupBy(item => item.FacultyName)
             .Select(group =>
             {
@@ -1359,7 +1360,7 @@ public class PaymentService(AppDbContext db)
             .ToListAsync();
 
         var conductedSessions = (await db.Sessions
-            .Where(s => s.Date >= sDate && s.Date <= eDate && s.Status != SessionStatus.Cancelled)
+            .Where(s => s.Date >= sDate && s.Date <= eDate && s.Status != SessionStatus.Cancelled && s.Faculty.IsActive)
             .Include(s => s.Course)
             .Include(s => s.Faculty)
             .OrderBy(s => s.Date)
@@ -1378,7 +1379,7 @@ public class PaymentService(AppDbContext db)
         var totalRmHours = allRmSessions.Sum(s => s.DurationHours);
         var halfRmHours = totalRmHours * 0.5m;
 
-        var activeFacultyIds = conductedSessions.Select(s => s.FacultyId).Distinct().ToList();
+        var activeFacultyIds = conductedSessions.Select(s => s.FacultyId).Where(id => faculties.Any(f => f.Id == id)).Distinct().ToList();
         if (halfRmHours > 0)
         {
             if (hambardeFaculty != null && !activeFacultyIds.Contains(hambardeFaculty.Id)) activeFacultyIds.Add(hambardeFaculty.Id);
@@ -1391,7 +1392,7 @@ public class PaymentService(AppDbContext db)
         var facultyListWithSessions = activeFacultyIds
             .Select(facId =>
             {
-                var fac = faculties.FirstOrDefault(f => f.Id == facId)!;
+                var fac = faculties.First(f => f.Id == facId);
                 var rates = fac.Rates;
                 var currentRate = rates
                     .Where(r => r.EffectiveFrom <= eDate && (r.EffectiveTo == null || r.EffectiveTo > eDate))
@@ -2392,31 +2393,22 @@ public class PaymentService(AppDbContext db)
     // A practical block, however long, is one practical payment unit; theory/tutorial slots are paid per lecture.
     private static readonly IReadOnlyList<TimetablePlanItem> TimetablePaymentPlan = new List<TimetablePlanItem>
     {
-        new(DayOfWeek.Friday, "Dr. Ganesh Birajdar", "Lecture", 3),
         new(DayOfWeek.Friday, "Dr. Vitthal Gutte", "Lecture", 1),
         new(DayOfWeek.Friday, "Dr. M. D. Hambarde", "Lecture", 1),
-        new(DayOfWeek.Friday, "Dr. Vivekanand M Bankolli", "Lecture", 3),
         new(DayOfWeek.Friday, "Mr. Siddu Patil", "Lecture", 3),
-        new(DayOfWeek.Friday, "Mr. Abhishek Joshi", "Practical", 1),
+        new(DayOfWeek.Friday, "Mr. Siddu Patil", "Practical", 2),
 
-        new(DayOfWeek.Saturday, "Mr. Yatharth Verma", "Practical", 1),
-        new(DayOfWeek.Saturday, "Dr. Jagdish Shinde", "Practical", 1),
+        new(DayOfWeek.Saturday, "Mr. Shashidhar Ramesh", "Practical", 1),
         new(DayOfWeek.Saturday, "Mr. Shashidhar Ramesh", "Lecture", 1),
-        new(DayOfWeek.Saturday, "Dr. Jagdish Shinde", "Lecture", 1),
-        new(DayOfWeek.Saturday, "Dr. Vitthal Gutte", "Lecture", 1),
         new(DayOfWeek.Saturday, "Dr. M. D. Hambarde", "Lecture", 1),
-        new(DayOfWeek.Saturday, "Dr. Ganesh Birajdar", "Lecture", 1),
-        new(DayOfWeek.Saturday, "Mr. Subodh B Patil", "Practical", 1),
-        new(DayOfWeek.Saturday, "Mr. Abhishek Joshi", "Practical", 1),
+        new(DayOfWeek.Saturday, "Mr. Abhishek Joshi", "Practical", 2),
+        new(DayOfWeek.Saturday, "Mr. Subodh B Patil", "Practical", 4),
 
-        new(DayOfWeek.Sunday, "Mr. Yatharth Verma", "Practical", 1),
-        new(DayOfWeek.Sunday, "Dr. Jagdish Shinde", "Practical", 1),
+        new(DayOfWeek.Sunday, "Mr. Shashidhar Ramesh", "Practical", 1),
         new(DayOfWeek.Sunday, "Mr. Shashidhar Ramesh", "Lecture", 1),
-        new(DayOfWeek.Sunday, "Dr. Jagdish Shinde", "Lecture", 1),
-        new(DayOfWeek.Sunday, "Dr. Vitthal Gutte", "Lecture", 2),
-        new(DayOfWeek.Sunday, "Dr. M. D. Hambarde", "Lecture", 2),
+        new(DayOfWeek.Sunday, "Dr. Vitthal Gutte", "Lecture", 1),
         new(DayOfWeek.Sunday, "Mr. Vivekanand P Navadagi", "Lecture", 3),
-        new(DayOfWeek.Sunday, "Mr. Vivekanand P Navadagi", "Practical", 1)
+        new(DayOfWeek.Sunday, "Mr. Vivekanand P Navadagi", "Practical", 2)
     };
 }
 

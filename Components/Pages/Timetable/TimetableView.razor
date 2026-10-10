@@ -292,15 +292,13 @@
 
     private readonly List<TeacherDetail> _officialTeachers = new()
     {
-        new(1, "Dr Vivekanand M Bankolli (VMB) / Mr. Siddu Patil (SP)", "Advance Data Centre and Cloud Infrastructure Engineering (ADC & CIE)"),
+        new(1, "Mr. Siddu Patil (SP)", "Advance Data Centre and Cloud Infrastructure Engineering (ADC & CIE)"),
         new(2, "Mr. Vivekanand P Navadagi (VPN)", "Advanced Cloud Computing & Data Storage System (ACC & DSS) and ACC & DSS Lab"),
-        new(3, "Mr. Subodh B Patil (SBP) / Mr. Abhishek Joshi (AJ)", "Project Lab-I"),
-        new(4, "Dr. GANESH BIRAJDAR (GB)", "Advanced Mathematics (AM)"),
-        new(5, "Dr. M. D. Hambarde (MDH) / Dr. Vitthal Gutte (VG)", "Research Methodology for Engineers (RM)"),
-        new(6, "Mr. Shashidhar Ramesh (SR) / Dr. Jagdish Shinde (JS)", "Scientific Studies of Mind, Matter, Spirit and Consciousness (SSM)"),
-        new(7, "Mr. Shashidhar Ramesh (SR) / Dr. Jagdish Shinde (JS)", "YOGA"),
-        new(8, "Mr. Abhishek Joshi (AJ)", "ADC & CIE Lab"),
-        new(9, "Dr. Vitthal Gutte (VG)", "ESD-Employment Skill Development")
+        new(3, "Mr. Subodh B Patil (SBP)", "Project Lab-I"),
+        new(4, "Dr. M. D. Hambarde (MDH) / Dr. Vitthal Gutte (VG)", "Research Methodology for Engineers (RM) (50-50 Co-Teaching)"),
+        new(5, "Mr. Shashidhar Ramesh (SR)", "Scientific Studies of Mind, Matter, Spirit and Consciousness (SSM) & YOGA"),
+        new(6, "Mr. Abhishek Joshi (AJ)", "ADC & CIE Lab"),
+        new(7, "Dr. Vitthal Gutte (VG)", "ESD - Employment Skill Development")
     };
 
     private readonly List<OfficialRow> _officialRows = new()
@@ -325,19 +323,17 @@
         new OfficialRow
         {
             Day = "Friday",
-            Slot1 = "<b>AM</b> (GB)<br /><small>VY202</small>",
-            S1Style = "background:#EEF2FF; color:#4F46E5; text-align:center;",
-            Slot2 = "<b>AM</b> (GB)<br /><small>VY202</small>",
-            S2Style = "background:#EEF2FF; color:#4F46E5; text-align:center;",
+            Slot1 = "—",
+            Slot2 = "—",
             Slot3 = "<b>RM</b> (MDH)<br /><small>VY602</small>",
             S3Style = "background:#FDF4FF; color:#C026D3; text-align:center;",
             Slot4 = "<b>RM</b> (MDH)<br /><small>VY602</small>",
             S4Style = "background:#FDF4FF; color:#C026D3; text-align:center;",
-            Slot5 = "<b>ADC & CIE</b> (VMB/SP)<br /><small>VY602</small>",
+            Slot5 = "<b>ADC & CIE</b> (SP)<br /><small>VY602</small>",
             S5Style = "background:#ECFDF5; color:#047857; text-align:center;",
-            Slot6 = "<b>ADC & CIE</b> (VMB/SP)<br /><small>VY602</small>",
+            Slot6 = "<b>ADC & CIE</b> (SP)<br /><small>VY602</small>",
             S6Style = "background:#ECFDF5; color:#047857; text-align:center;",
-            Slot7 = "<b>ADC & CIE</b> (VMB/SP)<br /><small>VY201</small>",
+            Slot7 = "<b>ADC & CIE</b> (SP)<br /><small>VY201</small>",
             S7Style = "background:#ECFDF5; color:#047857; text-align:center;",
             Slot8 = "<b>RM</b> (VG)<br /><small>VY201</small>",
             S8Style = "background:#FDF4FF; color:#C026D3; text-align:center;"
@@ -345,33 +341,31 @@
         new OfficialRow
         {
             Day = "Saturday",
-            Slot1 = "<b>Yoga</b><br /><small>(SR/JS)</small>",
+            Slot1 = "<b>Yoga</b><br /><small>(SR)</small>",
             S1Style = "background:#ECFEFF; color:#0891B2; text-align:center;",
-            Slot2 = "<b>SSM</b> (SR/JS)<br /><small>VY101</small>",
+            Slot2 = "<b>SSM</b> (SR)<br /><small>VY101</small>",
             S2Style = "background:#FFFBEB; color:#D97706; text-align:center;",
-            Slot3 = "<b>AM</b> (GB) (TUTORIAL)<br /><small>VY101</small>",
-            S3Style = "background:#EEF2FF; color:#4F46E5; text-align:center;",
-            Slot4 = "<b>AM</b> (GB)<br /><small>VY101</small>",
-            S4Style = "background:#EEF2FF; color:#4F46E5; text-align:center;",
+            Slot3 = "—",
+            Slot4 = "—",
             Slot5 = "<b>ADC & CIE Lab</b> (AJ)<br /><small>VY101</small>",
             S5Style = "background:#F0FDF4; color:#166534; text-align:center;",
             Slot6 = "<b>ADC & CIE Lab</b> (AJ)<br /><small>VY101</small>",
             S6Style = "background:#F0FDF4; color:#166534; text-align:center;",
-            Slot7 = "<b>Project Lab-I</b> (SBP/AJ)<br /><small>VY101</small>",
+            Slot7 = "<b>Project Lab-I</b> (SBP)<br /><small>VY101</small>",
             S7Style = "background:#F1F5F9; color:#0F172A; text-align:center;",
-            Slot8 = "<b>Project Lab-I</b> (SBP/AJ)<br /><small>VY101</small>",
+            Slot8 = "<b>Project Lab-I</b> (SBP)<br /><small>VY101</small>",
             S8Style = "background:#F1F5F9; color:#0F172A; text-align:center;"
         },
         new OfficialRow
         {
             Day = "Sunday",
-            Slot1 = "<b>Yoga</b><br /><small>(SR/JS)</small>",
+            Slot1 = "<b>Yoga</b><br /><small>(SR)</small>",
             S1Style = "background:#ECFEFF; color:#0891B2; text-align:center;",
-            Slot2 = "<b>SSM</b> (SR/JS)<br /><small>VY101</small>",
+            Slot2 = "<b>SSM</b> (SR)<br /><small>VY101</small>",
             S2Style = "background:#FFFBEB; color:#D97706; text-align:center;",
-            Slot3 = "<b>Project Lab-I</b> (SBP/AJ)<br /><small>VY101</small>",
+            Slot3 = "<b>Project Lab-I</b> (SBP)<br /><small>VY101</small>",
             S3Style = "background:#F1F5F9; color:#0F172A; text-align:center;",
-            Slot4 = "<b>Project Lab-I</b> (SBP/AJ)<br /><small>VY101</small>",
+            Slot4 = "<b>Project Lab-I</b> (SBP)<br /><small>VY101</small>",
             S4Style = "background:#F1F5F9; color:#0F172A; text-align:center;",
             Slot5 = "<b>ACC & DSS Lab</b> (VPN)<br /><small>VY101</small>",
             S5Style = "background:#FEF2F2; color:#991B1B; text-align:center;",
@@ -421,53 +415,52 @@
         new LegacyScheduleRow
         {
             Day = "Friday",
-            Slot1 = "AM (GB)", S1Style = "background: #EEF2FF; color: #4F46E5;",
-            Slot2 = "AM (GB)", S2Style = "background: #EEF2FF; color: #4F46E5;",
-            Slot3 = "RM Tut (VG/MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
-            Slot4 = "AM Tut (GB)", S4Style = "background: #EEF2FF; color: #4F46E5;",
-            Slot5 = "ADC & CIE (VMB/SP)", S5Style = "background: #ECFDF5; color: #047857;",
-            Slot6 = "ADC & CIE (VMB/SP)", S6Style = "background: #ECFDF5; color: #047857;",
-            Slot7 = "ADC & CIE (VMB/SP)", S7Style = "background: #ECFDF5; color: #047857;",
-            Slot8 = "ADC Lab (AJ)", S8Style = "background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0;",
-            Slot9 = "ADC Lab (AJ)", S9Style = "background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0;"
+            Slot1 = "—", S1Style = "color: #CBD5E1;",
+            Slot2 = "RM (VG)", S2Style = "background: #FDF4FF; color: #C026D3;",
+            Slot3 = "RM Tut (MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
+            Slot4 = "—", S4Style = "color: #CBD5E1;",
+            Slot5 = "ADC & CIE (SP)", S5Style = "background: #ECFDF5; color: #047857;",
+            Slot6 = "ADC & CIE (SP)", S6Style = "background: #ECFDF5; color: #047857;",
+            Slot7 = "ADC Lab (SP)", S7Style = "background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0;",
+            Slot8 = "ADC Lab (SP)", S8Style = "background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0;",
+            Slot9 = "ADC & CIE (SP)", S9Style = "background: #ECFDF5; color: #047857;"
         },
         new LegacyScheduleRow
         {
             Day = "Saturday",
-            Slot1 = "Yoga (YV/JS)", S1Style = "background: #ECFEFF; color: #0891B2;",
-            Slot2 = "SSM (SR/JS)", S2Style = "background: #FFFBEB; color: #D97706;",
-            Slot3 = "RM (VG/MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
-            Slot4 = "AM (GB)", S4Style = "background: #EEF2FF; color: #4F46E5;",
-            Slot5 = "Proj Lab-I (SBP/AJ)", S5Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
-            Slot6 = "Proj Lab-I (SBP/AJ)", S6Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
-            Slot7 = "Proj Lab-I (SBP/AJ)", S7Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
-            Slot8 = "Proj Lab-I (SBP/AJ)", S8Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot1 = "Yoga (SR)", S1Style = "background: #ECFEFF; color: #0891B2;",
+            Slot2 = "SSM (SR)", S2Style = "background: #FFFBEB; color: #D97706;",
+            Slot3 = "—", S3Style = "color: #CBD5E1;",
+            Slot4 = "RM (MDH)", S4Style = "background: #FDF4FF; color: #C026D3;",
+            Slot5 = "Proj Lab-I (SBP)", S5Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot6 = "Proj Lab-I (SBP)", S6Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot7 = "Proj Lab-I (SBP)", S7Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
+            Slot8 = "Proj Lab-I (SBP)", S8Style = "background: #F1F5F9; color: #0F172A; border: 1px solid #CBD5E1;",
             Slot9 = "—", S9Style = "color: #CBD5E1;"
         },
         new LegacyScheduleRow
         {
             Day = "Sunday",
-            Slot1 = "Yoga (YV/JS)", S1Style = "background: #ECFEFF; color: #0891B2;",
-            Slot2 = "SSM (SR/JS)", S2Style = "background: #FFFBEB; color: #D97706;",
-            Slot3 = "RM (VG/MDH)", S3Style = "background: #FDF4FF; color: #C026D3;",
-            Slot4 = "RM (VG/MDH)", S4Style = "background: #FDF4FF; color: #C026D3;",
+            Slot1 = "Yoga (SR)", S1Style = "background: #ECFEFF; color: #0891B2;",
+            Slot2 = "SSM (SR)", S2Style = "background: #FFFBEB; color: #D97706;",
+            Slot3 = "RM (VG)", S3Style = "background: #FDF4FF; color: #C026D3;",
+            Slot4 = "—", S4Style = "color: #CBD5E1;",
             Slot5 = "ACC & DSS (VPN)", S5Style = "background: #FEF2F2; color: #DC2626;",
             Slot6 = "ACC & DSS (VPN)", S6Style = "background: #FEF2F2; color: #DC2626;",
-            Slot7 = "ACC & DSS (VPN)", S7Style = "background: #FEF2F2; color: #DC2626;",
+            Slot7 = "ACC Lab (VPN)", S7Style = "background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;",
             Slot8 = "ACC Lab (VPN)", S8Style = "background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;",
-            Slot9 = "ACC Lab (VPN)", S9Style = "background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA;"
+            Slot9 = "ACC & DSS (VPN)", S9Style = "background: #FEF2F2; color: #DC2626;"
         }
     };
 
     private readonly List<LegendItem> _legacyLegend = new()
     {
-        new LegendItem { Code = "ADC & CIE", Category = "Theory (3 Hrs)", SubjectName = "Advance Data Centre and Cloud Infra Engg", FacultyName = "Dr. Vivekanand Bankolli / Mr. Siddu Patil", BadgeStyle = "background: #ECFDF5; color: #047857;" },
-        new LegendItem { Code = "ADC Lab", Category = "Lab (2 Hrs)", SubjectName = "ADC & CIE Practical Laboratory", FacultyName = "Mr. Abhishek Joshi", BadgeStyle = "background: #F0FDF4; color: #166534;" },
+        new LegendItem { Code = "ADC & CIE", Category = "Theory (3 Hrs)", SubjectName = "Advance Data Centre and Cloud Infra Engg", FacultyName = "Mr. Siddu Patil", BadgeStyle = "background: #ECFDF5; color: #047857;" },
+        new LegendItem { Code = "ADC Lab", Category = "Lab (2 Hrs)", SubjectName = "ADC & CIE Practical Laboratory", FacultyName = "Mr. Abhishek Joshi / Mr. Siddu Patil", BadgeStyle = "background: #F0FDF4; color: #166534;" },
         new LegendItem { Code = "ACC & DSS", Category = "Theory & Lab", SubjectName = "Advanced Cloud Computing & Data Storage", FacultyName = "Mr. Vivekanand P Navadagi", BadgeStyle = "background: #FEF2F2; color: #DC2626;" },
-        new LegendItem { Code = "Project Lab-I", Category = "Project (4 Hrs)", SubjectName = "Project Lab-I Problem Definition", FacultyName = "Mr. Subodh B Patil / Mr. Abhishek Joshi", BadgeStyle = "background: #F1F5F9; color: #0F172A;" },
-        new LegendItem { Code = "AM", Category = "Maths (4 Hrs)", SubjectName = "Advanced Mathematics & Tutorial", FacultyName = "Dr. Ganesh Birajdar (MIT-WPU)", BadgeStyle = "background: #EEF2FF; color: #4F46E5;" },
+        new LegendItem { Code = "Project Lab-I", Category = "Project (4 Hrs)", SubjectName = "Project Lab-I Problem Definition", FacultyName = "Mr. Subodh B Patil", BadgeStyle = "background: #F1F5F9; color: #0F172A;" },
         new LegendItem { Code = "RM", Category = "Research (4 Hrs)", SubjectName = "Research Methodology for Engineers", FacultyName = "Dr. Vitthal Gutte / Dr. M.D. Hambarde", BadgeStyle = "background: #FDF4FF; color: #C026D3;" },
-        new LegendItem { Code = "SSM", Category = "Peace (2 Hrs)", SubjectName = "Scientific Studies of Mind, Matter & Spirit", FacultyName = "Mr. Shashidhar Ramesh / Dr. Jagdish Shinde", BadgeStyle = "background: #FFFBEB; color: #D97706;" },
-        new LegendItem { Code = "YOGA", Category = "Yoga (2 Hrs)", SubjectName = "Yoga & Holistic Well-being", FacultyName = "Mr. Yatharth Verma / Dr. Jagdish Shinde", BadgeStyle = "background: #ECFEFF; color: #0891B2;" }
+        new LegendItem { Code = "SSM", Category = "Peace (2 Hrs)", SubjectName = "Scientific Studies of Mind, Matter & Spirit", FacultyName = "Mr. Shashidhar Ramesh", BadgeStyle = "background: #FFFBEB; color: #D97706;" },
+        new LegendItem { Code = "YOGA", Category = "Yoga (2 Hrs)", SubjectName = "Yoga & Holistic Well-being", FacultyName = "Mr. Shashidhar Ramesh", BadgeStyle = "background: #ECFEFF; color: #0891B2;" }
     };
 }
