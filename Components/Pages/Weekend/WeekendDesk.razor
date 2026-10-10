@@ -71,10 +71,28 @@
             <strong>@_selectedDate.ToString("dddd, dd MMMM yyyy")</strong>
         </div>
         <MudDatePicker Date="@_selectedDate" DateChanged="SelectCustomDate" Label="Choose another date" Variant="Variant.Outlined" Margin="Margin.Dense" Class="selected-day-banner__picker" DateFormat="dd/MM/yyyy" AutoClose="true" ShowToolbar="false" AnchorOrigin="Origin.BottomLeft" TransformOrigin="Origin.TopLeft" />
-        <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.TaskAlt"
-                   Disabled="@(!CanSubmitDay)" OnClick="OpenSubmitDayDialog" Class="selected-day-banner__submit">
-            @SubmitDayButtonLabel
-        </MudButton>
+        @if (CanSubmitDay)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.TaskAlt"
+                       OnClick="OpenSubmitDayDialog" Class="selected-day-banner__submit">
+                Submit completed day
+            </MudButton>
+        }
+        else if (ConductedDaySessionCount > 0)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.Payments"
+                       Href="@($"/payment-overview?date={_selectedDate:yyyy-MM-dd}")" Class="selected-day-banner__submit"
+                       Style="font-weight:700;">
+                View in Billing (₹@DayPaymentTotal.ToString("N0"))
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Success" StartIcon="@Icons.Material.Filled.TaskAlt"
+                       Disabled="true" Class="selected-day-banner__submit">
+                No classes to submit
+            </MudButton>
+        }
         <MudButton Variant="Variant.Filled"
                    Color="Color.Error"
                    StartIcon="@Icons.Material.Filled.EventBusy"
@@ -1088,8 +1106,23 @@
 
     private async Task LoadDayData()
     {
+        var rawSessions = await SessionSvc.GetAllAsync(_selectedDate, _selectedDate);
+        var scheduledOnDay = rawSessions.Where(s => s.Status == SessionStatus.Scheduled).ToList();
+        if (scheduledOnDay.Any())
+        {
+            foreach (var session in scheduledOnDay)
+            {
+                session.Status = SessionStatus.Conducted;
+                session.IsApproved = true;
+                session.ApprovedBy = "Administrator";
+                session.ApprovedAt = DateTime.UtcNow;
+                await SessionSvc.UpdateAsync(session);
+            }
+            rawSessions = await SessionSvc.GetAllAsync(_selectedDate, _selectedDate);
+        }
+
         _daySessions.Clear();
-        _daySessions.AddRange(await SessionSvc.GetAllAsync(_selectedDate, _selectedDate));
+        _daySessions.AddRange(rawSessions);
         var weekendSessions = await SessionSvc.GetAllAsync(_weekendStart, _weekendStart.AddDays(3));
         _weekendSessionCounts = weekendSessions
             .Where(session => session.Status != SessionStatus.Cancelled)
@@ -1311,18 +1344,37 @@
             var course = _courses.FirstOrDefault(item => string.Equals(item.CourseCode, plannedClass.CourseCode, StringComparison.OrdinalIgnoreCase));
             var faculty = _faculty.FirstOrDefault(item => string.Equals(item.FullName, plannedClass.DefaultFacultyName, StringComparison.OrdinalIgnoreCase) && item.IsActive)
                 ?? _faculty.FirstOrDefault(item => item.FullName.Contains(plannedClass.DefaultFacultyName.Split(' ').Last(), StringComparison.OrdinalIgnoreCase) && item.IsActive);
-            var alreadyPrepared = FindPlannedSession(plannedClass) != null;
+            var existingSession = FindPlannedSession(plannedClass);
 
-            if (course is null || faculty is null || alreadyPrepared) continue;
+            if (course is null || faculty is null) continue;
 
-            await SessionSvc.ScheduleSessionAsync(new Session
+            if (existingSession != null)
+            {
+                if (existingSession.Status == SessionStatus.Scheduled)
+                {
+                    existingSession.Status = SessionStatus.Conducted;
+                    existingSession.IsApproved = true;
+                    existingSession.ApprovedBy = "Administrator";
+                    existingSession.ApprovedAt = DateTime.UtcNow;
+                    await SessionSvc.UpdateAsync(existingSession);
+                    added++;
+                }
+                continue;
+            }
+
+            await SessionSvc.LogSessionAsync(new Session
             {
                 Date = _selectedDate,
                 FacultyId = faculty.Id,
                 CourseId = course.Id,
                 ActualStartTime = plannedClass.StartTime,
                 ActualEndTime = plannedClass.EndTime,
+                DurationHours = (decimal)(plannedClass.EndTime - plannedClass.StartTime).TotalHours,
                 SessionType = plannedClass.SessionType,
+                Status = SessionStatus.Conducted,
+                IsApproved = true,
+                ApprovedBy = "Administrator",
+                ApprovedAt = DateTime.UtcNow,
                 Notes = $"Prepared from the {(_selectedTimetableVersion == 1 ? "Official AY 2026-27 (26h)" : "Official Academic (28h)")} timetable.",
                 LoggedBy = "Administrator"
             });
@@ -1454,18 +1506,34 @@
                 return;
             }
 
-            await SessionSvc.ScheduleSessionAsync(new Session
+            var existingSession = FindPlannedSession(plan);
+            if (existingSession != null)
             {
-                Date = _selectedDate,
-                FacultyId = faculty.Id,
-                CourseId = course.Id,
-                ActualStartTime = plan.StartTime,
-                ActualEndTime = plan.EndTime,
-                DurationHours = (decimal)(plan.EndTime - plan.StartTime).TotalHours,
-                SessionType = plan.SessionType,
-                Notes = $"Prepared from the {(_selectedTimetableVersion == 1 ? "Official AY 2026-27 (26h)" : "Official Academic (28h)")} timetable.",
-                LoggedBy = "Administrator"
-            });
+                existingSession.Status = SessionStatus.Conducted;
+                existingSession.IsApproved = true;
+                existingSession.ApprovedBy = "Administrator";
+                existingSession.ApprovedAt = DateTime.UtcNow;
+                await SessionSvc.UpdateAsync(existingSession);
+            }
+            else
+            {
+                await SessionSvc.LogSessionAsync(new Session
+                {
+                    Date = _selectedDate,
+                    FacultyId = faculty.Id,
+                    CourseId = course.Id,
+                    ActualStartTime = plan.StartTime,
+                    ActualEndTime = plan.EndTime,
+                    DurationHours = (decimal)(plan.EndTime - plan.StartTime).TotalHours,
+                    SessionType = plan.SessionType,
+                    Status = SessionStatus.Conducted,
+                    IsApproved = true,
+                    ApprovedBy = "Administrator",
+                    ApprovedAt = DateTime.UtcNow,
+                    Notes = $"Prepared from the {(_selectedTimetableVersion == 1 ? "Official AY 2026-27 (26h)" : "Official Academic (28h)")} timetable.",
+                    LoggedBy = "Administrator"
+                });
+            }
             await LoadDayData();
             Snackbar.Add($"Prepared {plan.CourseName} ({plan.SessionType}) for {_selectedDate:dd MMM}.", Severity.Success);
         }

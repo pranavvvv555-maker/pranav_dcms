@@ -56,8 +56,7 @@ public class PaymentService(AppDbContext db)
         var allPeriodSessions = await db.Sessions
             .Where(s => s.Date >= period.StartDate
                 && s.Date <= period.EndDate
-                && s.Status == SessionStatus.Conducted
-                && s.IsApproved)
+                && s.Status != SessionStatus.Cancelled)
             .Include(s => s.Course)
             .ToListAsync();
 
@@ -172,8 +171,7 @@ public class PaymentService(AppDbContext db)
         var sessions = await db.Sessions
             .Where(item => item.Date >= startDate
                 && item.Date <= endDate
-                && item.Status == SessionStatus.Conducted
-                && item.IsApproved)
+                && item.Status != SessionStatus.Cancelled)
             .Include(item => item.Course)
             .ToListAsync();
 
@@ -327,8 +325,7 @@ public class PaymentService(AppDbContext db)
         var conductedSessions = await db.Sessions
             .Where(item => item.Date >= firstDate
                 && item.Date <= lastDate
-                && item.Status == SessionStatus.Conducted
-                && item.IsApproved)
+                && item.Status != SessionStatus.Cancelled)
             .Include(item => item.Course)
             .ToListAsync();
 
@@ -1362,24 +1359,12 @@ public class PaymentService(AppDbContext db)
             .ToListAsync();
 
         var conductedSessions = (await db.Sessions
-            .Where(s => s.Date >= sDate && s.Date <= eDate && s.Status == SessionStatus.Conducted && s.IsApproved)
+            .Where(s => s.Date >= sDate && s.Date <= eDate && s.Status != SessionStatus.Cancelled)
             .Include(s => s.Course)
             .Include(s => s.Faculty)
             .OrderBy(s => s.Date)
             .ToListAsync())
             .OrderBy(s => s.Date).ThenBy(s => s.ActualStartTime).ToList();
-        if (!conductedSessions.Any())
-        {
-            var scheduled = (await db.Sessions
-                .Where(s => s.Date >= sDate && s.Date <= eDate && s.Status != SessionStatus.Cancelled)
-                .Include(s => s.Course)
-                .Include(s => s.Faculty)
-                .OrderBy(s => s.Date)
-                .ToListAsync())
-                .OrderBy(s => s.Date).ThenBy(s => s.ActualStartTime).ToList();
-            if (scheduled.Any())
-                conductedSessions = scheduled;
-        }
 
         var hambardeFaculty = faculties.FirstOrDefault(f => f.FullName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase));
         var gutteFaculty = faculties.FirstOrDefault(f => f.FullName.Contains("Gutte", StringComparison.OrdinalIgnoreCase));

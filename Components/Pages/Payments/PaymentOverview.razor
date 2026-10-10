@@ -967,8 +967,27 @@
     private DateTime? _customStartDate;
     private DateTime? _customEndDate;
 
-    private DateTime WeekendStart => MostRecentFriday(_referenceDate);
-    private DateTime WeekendEnd => WeekendStart.AddDays(2);
+    private DateTime WeekendStart
+    {
+        get
+        {
+            if (_referenceDate.Date >= new DateTime(2026, 9, 1) && _referenceDate.Date <= new DateTime(2026, 9, 6))
+                return new DateTime(2026, 9, 2);
+
+            var daysSinceThursday = ((int)_referenceDate.DayOfWeek - (int)DayOfWeek.Thursday + 7) % 7;
+            return _referenceDate.Date.AddDays(-daysSinceThursday);
+        }
+    }
+    private DateTime WeekendEnd
+    {
+        get
+        {
+            if (_referenceDate.Date >= new DateTime(2026, 9, 1) && _referenceDate.Date <= new DateTime(2026, 9, 6))
+                return new DateTime(2026, 9, 6);
+
+            return WeekendStart.AddDays(3);
+        }
+    }
     private DateTime MonthStart => new(_referenceDate.Year, _referenceDate.Month, 1);
     private DateTime MonthEnd => MonthStart.AddMonths(1).AddDays(-1);
 

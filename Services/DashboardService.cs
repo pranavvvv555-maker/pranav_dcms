@@ -20,7 +20,7 @@ public class DashboardService(AppDbContext db)
 
         return await db.Sessions
             .Where(s => s.Date >= startOfMonth && s.Date <= endOfMonth
-                && s.Status == SessionStatus.Conducted && s.IsApproved)
+                && s.Status != SessionStatus.Cancelled)
             .CountAsync();
     }
 
@@ -32,7 +32,7 @@ public class DashboardService(AppDbContext db)
 
         var sessions = await db.Sessions
             .Where(s => s.Date >= startOfMonth && s.Date <= endOfMonth
-                && s.Status == SessionStatus.Conducted && s.IsApproved)
+                && s.Status != SessionStatus.Cancelled)
             .ToListAsync();
 
         decimal total = 0;
@@ -64,7 +64,7 @@ public class DashboardService(AppDbContext db)
         var data = await db.Sessions
             .Include(s => s.Faculty)
             .Where(s => s.Date >= startOfMonth && s.Date <= endOfMonth
-                && s.Status == SessionStatus.Conducted)
+                && s.Status != SessionStatus.Cancelled)
             .GroupBy(s => s.Faculty.FullName)
             .Select(g => new { Name = g.Key, Hours = g.Sum(s => s.DurationHours) })
             .OrderByDescending(x => x.Hours)

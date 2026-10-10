@@ -13,7 +13,7 @@ public class AttendanceService(AppDbContext db)
             .Include(session => session.Faculty)
             .Include(session => session.Course)
             .Include(session => session.AttendanceRecords)
-            .Where(session => session.Date.Date == date.Date && session.Status == SessionStatus.Conducted)
+            .Where(session => session.Date.Date == date.Date && session.Status != SessionStatus.Cancelled)
             .ToListAsync();
 
         return sessions
@@ -97,7 +97,7 @@ public class AttendanceService(AppDbContext db)
         var sessions = await db.Sessions
             .Include(session => session.Faculty)
             .Include(session => session.AttendanceRecords)
-            .Where(session => session.Date.Date == date.Date && session.Status == SessionStatus.Conducted)
+            .Where(session => session.Date.Date == date.Date && session.Status != SessionStatus.Cancelled)
             .ToListAsync();
 
         return sessions

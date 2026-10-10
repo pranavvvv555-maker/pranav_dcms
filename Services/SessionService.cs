@@ -148,7 +148,7 @@ public class SessionService(AppDbContext db)
         => await db.Sessions
             .Where(s => s.FacultyId == facultyId
                 && s.Date >= from && s.Date <= to
-                && s.Status == SessionStatus.Conducted)
+                && s.Status != SessionStatus.Cancelled)
             .SumAsync(s => s.DurationHours);
 
     public async Task<(int LectureCount, int PracticalCount)> GetClassCountsAsync(int facultyId, DateTime from, DateTime to)
@@ -156,8 +156,7 @@ public class SessionService(AppDbContext db)
         var sessionTypes = await db.Sessions
             .Where(s => s.FacultyId == facultyId
                 && s.Date >= from && s.Date <= to
-                && s.Status == SessionStatus.Conducted
-                && s.IsApproved)
+                && s.Status != SessionStatus.Cancelled)
             .Select(s => s.SessionType)
             .ToListAsync();
 

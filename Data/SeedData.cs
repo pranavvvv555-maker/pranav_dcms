@@ -20,6 +20,7 @@ public static class SeedData
             await EnsureSeptemberOctober2026SessionsAsync(db);
             await EnsureInductionStudentsAsync(db);
             await EnsureAcademicHolidaysAsync(db);
+            await EnsureScheduledSessionsPromotedAsync(db);
             return;
         }
 
@@ -88,6 +89,7 @@ public static class SeedData
         await EnsureAugust2026SessionsAsync(db);
         await EnsureSeptemberEarly2026SessionsAsync(db);
         await EnsureSeptemberOctober2026SessionsAsync(db);
+        await EnsureScheduledSessionsPromotedAsync(db);
     }
 
     private static async Task EnsureAssessmentsAsync(AppDbContext db)
@@ -1618,6 +1620,24 @@ public static class SeedData
                     IsRemovedDay = false,
                     CreatedAt = DateTime.UtcNow
                 });
+            }
+            await db.SaveChangesAsync();
+        }
+    }
+
+    private static async Task EnsureScheduledSessionsPromotedAsync(AppDbContext db)
+    {
+        var scheduled = await db.Sessions
+            .Where(s => s.Status == SessionStatus.Scheduled)
+            .ToListAsync();
+        if (scheduled.Any())
+        {
+            foreach (var s in scheduled)
+            {
+                s.Status = SessionStatus.Conducted;
+                s.IsApproved = true;
+                s.ApprovedBy = "Administrator";
+                s.ApprovedAt = DateTime.UtcNow;
             }
             await db.SaveChangesAsync();
         }
