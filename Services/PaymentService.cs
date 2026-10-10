@@ -1426,6 +1426,112 @@ public class PaymentService(AppDbContext db)
 
         var gutteBytes = GenerateRm5050ReceiptsPdf(webRootPath, "Gutte");
         File.WriteAllBytes(Path.Combine(outputDir, "Dr_Vitthal_Gutte_RM_50_50_Receipt_04Sep_to_04Oct_2026.pdf"), gutteBytes);
+
+        var cover5Bytes = GenerateSelected5ReceiptsCoverPagePdf(webRootPath);
+        File.WriteAllBytes(Path.Combine(outputDir, "Executive_Cover_Page_5_Selected_Receipts_04Sep_to_04Oct_2026.pdf"), cover5Bytes);
+    }
+
+    public byte[] GenerateSelected5ReceiptsCoverPagePdf(string? webRootPath = null)
+    {
+        var items = new List<ExecutiveSanctionFacultyItem>
+        {
+            new(
+                1,
+                "VOUCH-005",
+                7,
+                "Mr. Vivekanand P Navadagi",
+                "NIRVAA",
+                "NIRVAA / Cloud Architect",
+                "Advanced Cloud Computing & Data Storage System (CDS40020)",
+                "23 Sessions (13 Theory Lectures + 10 Practical Labs · Thu & Sun)",
+                23.0m,
+                1200m,
+                27600m),
+            new(
+                2,
+                "VOUCH-012",
+                12,
+                "Mr. Shashidhar Ramesh",
+                "NIRVAA",
+                "NIRVAA / Yoga Teacher",
+                "Yoga (YOG10030), Scientific Studies of Mind, Matter, Spirit & Consciousness (PCE10040)",
+                "20 Sessions (10 Theory Lectures + 10 Practical Labs · Sat & Sun, 8:30–10:30 AM)",
+                20.0m,
+                1200m,
+                24000m),
+            new(
+                3,
+                "VOUCH-006",
+                6,
+                "Mr. Subodh B Patil",
+                "NIRVAA",
+                "NIRVAA / Project Manager",
+                "Project Lab-I (CDS40030)",
+                "20 Sessions (20 Practical Labs · Sat & Sun)",
+                20.0m,
+                1200m,
+                24000m),
+            new(
+                4,
+                "VOUCH-013",
+                13,
+                "Dr. Ganesh Birajdar",
+                "MIT-WPU",
+                "MIT-WPU / Professor",
+                "Advanced Mathematics (MEC50010)",
+                "13 Sessions (9 Theory Lectures + 4 Tutorials · Fri, Sat & Sun · Excl. Holidays & 03 Oct Sub)",
+                13.0m,
+                1200m,
+                15600m),
+            new(
+                5,
+                "VOUCH-005",
+                5,
+                "Dr. M. D. Hambarde",
+                "MIT-WPU",
+                "MIT-WPU / Visiting Faculty (Professor)",
+                "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]",
+                "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
+                6.0m,
+                1200m,
+                7200m)
+        };
+
+        var totalHours = items.Sum(x => x.Hours); // 82.0h
+        var totalAmount = items.Sum(x => x.PayableAmount); // INR 98,400
+        var amountInWords = NumberToWordsINR(totalAmount);
+        var cycle = "04 Sep 2026 – 04 Oct 2026";
+
+        var narrative = "Submitted for executive approval is the audited faculty remuneration schedule and individual signed payment vouchers from the Department & Course Management System (DCMS) for sessions conducted strictly during the 04 Sep 2026 – 04 Oct 2026 billing cycle under the MIT-WPU × NIRVAA M.Tech in DCSE program. All 82 teaching hours across the 5 enclosed vouchers have been verified against the Old Timetable (04–06 Sep) and New Timetable (10 Sep – 04 Oct), with university holidays (18 Sep, 25 Sep, 02 Oct) and the 03 Oct substitution strictly accounted for at the approved rate of INR 1,200/hr. Specifically, Dr. Ganesh Birajdar conducted 13.0 hours (INR 15,600/-) in Advanced Mathematics (MEC50010), while Dr. M. D. Hambarde is billed for 6.0 hours (INR 7,200/-) under the 50-50 co-teaching split of 12 Research Methodology (MEC51050) sessions.";
+
+        var approvalMatrix = new List<ExecutiveSignatory>
+        {
+            new(1, "1. TECHNICAL REVIEW", "Mr. Siddu Patil", "Head – IT & Analytics", "Curriculum & Session Conduction Verification", "Approved & Cleared", null, null),
+            new(2, "2. FINANCE CLEARANCE", "Mr. Yadnesh Bauskar", "Director - Strategy & Finance", "Budget Sanction & Accounts Clearance", "Approved & Cleared", null, null),
+            new(3, "3. ACADEMIC ENDORSEMENT", "Mr. Anup Goel", "Director – Academics & Training", "Academic Program & Faculty Conduction Sign-off", "Approved & Cleared", null, null),
+            new(4, "4. FINAL SANCTION", "Dr. Jagdish Shinde", "Managing Director", "Executive Sanction & Banking Release", "Approved & Cleared", null, null),
+        };
+
+        var sanctionData = new ExecutiveSanctionData(
+            "NIRVAA/MIT-WPU/REM/202609/01",
+            new DateTime(2026, 10, 10),
+            cycle,
+            new DateTime(2026, 9, 4),
+            new DateTime(2026, 10, 4),
+            "Audited & Recommended",
+            "Head of Human Resources & Accounts, NIRVAA Solutions Pvt. Ltd.",
+            "Academic Operations & DCMS",
+            $"APPROVAL & DISBURSEMENT SANCTION FOR {cycle.ToUpper()} FACULTY REMUNERATION (TOTAL: INR {totalAmount:N0}/-)",
+            narrative,
+            items,
+            totalHours,
+            totalAmount,
+            amountInWords,
+            "Cash / Bank Transfer",
+            "(1) Signed DCMS Vouchers VOUCH-005 to VOUCH-013 (5 Enclosed Vouchers) | (2) Student Attendance Logs | (3) Weekly Conduction Audit",
+            approvalMatrix);
+
+        return GenerateExecutiveSanctionCoverPagePdf(sanctionData, webRootPath);
     }
 
     public async Task<ExecutiveSanctionData> GetExecutiveSanctionDataAsync(

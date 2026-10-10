@@ -658,21 +658,21 @@
                         Quick Date Presets:
                     </span>
                     <div class="d-flex flex-wrap gap-1">
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" Style="font-weight:700;"
+                                   OnClick="@(() => SetSanctionRange(new DateTime(2026, 9, 4), new DateTime(2026, 10, 4)))">
+                            04 Sep – 04 Oct 2026
+                        </MudButton>
                         <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                   OnClick="@(() => SetSanctionRange(new DateTime(2026, 9, 10), new DateTime(2026, 10, 4)))">
+                            10 Sep – 04 Oct 2026
+                        </MudButton>
+                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary"
                                    OnClick="@(() => SetSanctionRange(new DateTime(2026, 8, 1), new DateTime(2026, 8, 31)))">
                             August 2026 (Ref Memo)
                         </MudButton>
-                        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary"
-                                   OnClick="@(() => SetSanctionRange(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30)))">
-                            September 2026
-                        </MudButton>
                         <MudButton Variant="Variant.Outlined" Size="Size.Small"
-                                   OnClick="@(() => SetSanctionRange(MonthStart, MonthEnd))">
-                            Current Ledger Month
-                        </MudButton>
-                        <MudButton Variant="Variant.Outlined" Size="Size.Small"
-                                   OnClick="@(() => SetSanctionRange(WeekendStart, WeekendEnd))">
-                            Selected Weekend
+                                   OnClick="@(() => SetSanctionRange(PeriodStart, PeriodEnd))">
+                            Active Filter Period
                         </MudButton>
                     </div>
                 </div>
@@ -968,11 +968,11 @@
 
     // Executive Sanction State
     private bool _executiveSanctionDialogVisible;
-    private DateTime? _sanctionStartDate = new DateTime(2026, 8, 1);
-    private DateTime? _sanctionEndDate = new DateTime(2026, 8, 31);
-    private string _sanctionRefNo = "NIRVAA/DCMS/ES/2026/08-01";
-    private DateTime? _sanctionMemoDate = new DateTime(2026, 8, 31);
-    private string _sanctionCycleLabel = "AUGUST 2026";
+    private DateTime? _sanctionStartDate = new DateTime(2026, 9, 4);
+    private DateTime? _sanctionEndDate = new DateTime(2026, 10, 4);
+    private string _sanctionRefNo = "NIRVAA/MIT-WPU/REM/202609/01";
+    private DateTime? _sanctionMemoDate = new DateTime(2026, 10, 10);
+    private string _sanctionCycleLabel = "04 SEP 2026 – 04 OCT 2026";
     private string _sanctionStatus = "Audited & Recommended";
     private ExecutiveSanctionData? _sanctionData;
     private bool _isLoadingSanctionData;
@@ -1400,9 +1400,9 @@
 
     private async Task OpenExecutiveSanctionDialog()
     {
-        _sanctionStartDate ??= new DateTime(2026, 8, 1);
-        _sanctionEndDate ??= new DateTime(2026, 8, 31);
-        _sanctionMemoDate ??= new DateTime(2026, 8, 31);
+        _sanctionStartDate ??= new DateTime(2026, 9, 4);
+        _sanctionEndDate ??= new DateTime(2026, 10, 4);
+        _sanctionMemoDate ??= new DateTime(2026, 10, 10);
         _executiveSanctionDialogVisible = true;
         await LoadSanctionData();
     }
@@ -1411,8 +1411,8 @@
     {
         _sanctionStartDate = start;
         _sanctionEndDate = end;
-        _sanctionMemoDate = end;
-        if (start.Year == end.Year && start.Month == end.Month)
+        _sanctionMemoDate = DateTime.Today;
+        if (start.Year == end.Year && start.Month == end.Month && start.Day == 1 && end.Day == DateTime.DaysInMonth(start.Year, start.Month))
         {
             _sanctionCycleLabel = start.ToString("MMMM yyyy").ToUpper();
         }
@@ -1420,7 +1420,7 @@
         {
             _sanctionCycleLabel = $"{start:dd MMM yyyy} – {end:dd MMM yyyy}".ToUpper();
         }
-        _sanctionRefNo = $"NIRVAA/DCMS/ES/{start:yyyy}/{start:MM}-{end:dd}";
+        _sanctionRefNo = $"NIRVAA/MIT-WPU/REM/{start:yyyyMM}/01";
         await LoadSanctionData();
     }
 
@@ -1438,7 +1438,7 @@
         _sanctionEndDate = date;
         if (_sanctionStartDate.HasValue && _sanctionEndDate.HasValue)
         {
-            _sanctionMemoDate = _sanctionEndDate;
+            _sanctionMemoDate = DateTime.Today;
             await LoadSanctionData();
         }
     }
@@ -1456,7 +1456,7 @@
                 _sanctionStartDate.Value,
                 _sanctionEndDate.Value,
                 _sanctionRefNo,
-                _sanctionMemoDate ?? _sanctionEndDate.Value,
+                _sanctionMemoDate ?? DateTime.Today,
                 _sanctionCycleLabel,
                 null,
                 _sanctionStatus);
@@ -1495,7 +1495,12 @@
         if (_sanctionData is null) return;
         try
         {
-            var bytes = PaymentSvc.GenerateExecutiveSanctionDossierPdf(_sanctionData, HostEnv.WebRootPath);
+            var overviewForRange = await PaymentSvc.GetFacultyPaymentOverviewAsync(
+                WeekendStart,
+                WeekendEnd,
+                _sanctionData.StartDate,
+                _sanctionData.EndDate);
+            var bytes = PaymentSvc.GenerateExecutiveSanctionDossierPdf(_sanctionData, overviewForRange, HostEnv.WebRootPath);
             var base64 = Convert.ToBase64String(bytes);
             var filename = $"Executive_Sanction_Dossier_{_sanctionData.StartDate:yyyyMMdd}_{_sanctionData.EndDate:yyyyMMdd}.pdf";
 

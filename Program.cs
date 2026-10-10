@@ -123,6 +123,21 @@ using (var scope = app.Services.CreateScope())
             File.WriteAllBytes(Path.Combine(receiptsDir, "Dr_Ganesh_Birajdar_AM_Receipt_04Sep_to_04Oct_2026.pdf"), birajdarPdf);
         }
 
+        var sanctionAll8 = await paymentSvc.GetExecutiveSanctionDataAsync(
+            new DateTime(2026, 9, 4),
+            new DateTime(2026, 10, 4),
+            "NIRVAA/MIT-WPU/REM/202609/01",
+            new DateTime(2026, 10, 10),
+            "04 Sep 2026 – 04 Oct 2026",
+            null,
+            "Audited & Recommended");
+
+        var coverAll8Pdf = paymentSvc.GenerateExecutiveSanctionCoverPagePdf(sanctionAll8, app.Environment.WebRootPath);
+        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Cover_Page_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), coverAll8Pdf);
+
+        var dossierAll8Pdf = paymentSvc.GenerateExecutiveSanctionDossierPdf(sanctionAll8, overview, app.Environment.WebRootPath);
+        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Dossier_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), dossierAll8Pdf);
+
         Console.WriteLine("=== FULL BILLING AUDIT (04 SEP 2026 - 04 OCT 2026) ===");
         foreach (var f in overview)
         {
