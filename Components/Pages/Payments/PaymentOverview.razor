@@ -34,6 +34,9 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Article" OnClick="OpenExecutiveSanctionDialog">
                 Executive Cover Page
             </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Warning" StartIcon="@Icons.Material.Filled.CallSplit" OnClick="DownloadRm5050Receipts" Style="font-weight:800;">
+                RM 50–50 Receipts (PDF)
+            </MudButton>
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Receipt" OnClick="DownloadAllReceipts" Disabled="@(!_paymentOverview.Any())">
                 All Receipts (PDF)
             </MudButton>
@@ -1304,6 +1307,23 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Receipt generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadRm5050Receipts()
+    {
+        try
+        {
+            var bytes = PaymentSvc.GenerateRm5050ReceiptsPdf(HostEnv.WebRootPath);
+            var base64 = Convert.ToBase64String(bytes);
+            var filename = "RM_50_50_Split_Receipts_Hambarde_and_Gutte_04Sep_to_04Oct_2026.pdf";
+
+            await JS.InvokeVoidAsync("downloadFileFromBase64", filename, "application/pdf", base64);
+            Snackbar.Add("RM 50-50 Split Receipts (Dr. Hambarde & Dr. Gutte — ₹7,200 each) downloaded.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"RM Receipt generation failed: {ex.Message}", Severity.Error);
         }
     }
 

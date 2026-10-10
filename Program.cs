@@ -92,6 +92,15 @@ using (var scope = app.Services.CreateScope())
     var holidaySvc = scope.ServiceProvider.GetRequiredService<AcademicHolidayService>();
     await holidaySvc.EnsureTableExistsAsync();
     await SeedData.InitializeAsync(db);
+
+    var paymentSvc = scope.ServiceProvider.GetRequiredService<PaymentService>();
+    var receiptsDir = Path.Combine(app.Environment.WebRootPath, "receipts");
+    paymentSvc.ExportRm5050ReceiptsToDirectory(receiptsDir, app.Environment.WebRootPath);
+
+    if (args.Contains("--export-rm-pdf"))
+    {
+        return;
+    }
 }
 
 // Configure the HTTP request pipeline.

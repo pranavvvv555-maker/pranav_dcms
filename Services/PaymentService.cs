@@ -1346,6 +1346,88 @@ public class PaymentService(AppDbContext db)
         return doc.GeneratePdf();
     }
 
+    public byte[] GenerateRm5050ReceiptsPdf(string? webRootPath = null, string? targetFacultyFilter = null)
+    {
+        var rmSessions = new List<FacultyConductedSessionItem>
+        {
+            new(1,  new DateTime(2026, 9, 4),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Lecture",  new(9, 30, 0),  new(10, 30, 0), 0.5m, 600m, false, null, null),
+            new(2,  new DateTime(2026, 9, 4),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Tutorial", new(10, 45, 0), new(11, 45, 0), 0.5m, 600m, false, null, null),
+            new(3,  new DateTime(2026, 9, 5),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Lecture",  new(11, 45, 0), new(12, 45, 0), 0.5m, 600m, false, null, null),
+            new(4,  new DateTime(2026, 9, 6),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Lecture",  new(10, 45, 0), new(11, 45, 0), 0.5m, 600m, false, null, null),
+            new(5,  new DateTime(2026, 9, 10), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(6,  new DateTime(2026, 9, 11), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Lecture",  new(10, 45, 0), new(11, 45, 0), 0.5m, 600m, false, null, null),
+            new(7,  new DateTime(2026, 9, 11), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Lecture",  new(11, 45, 0), new(12, 45, 0), 0.5m, 600m, false, null, null),
+            new(8,  new DateTime(2026, 9, 11), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Lecture",  new(16, 45, 0), new(17, 45, 0), 0.5m, 600m, false, null, null),
+            new(9,  new DateTime(2026, 9, 17), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(10, new DateTime(2026, 9, 24), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(11, new DateTime(2026, 10, 1), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(12, new DateTime(2026, 10, 3), "MEC51050", "Research Methodology (Sat 03 Oct Sub · 50-50 Split)", "Lecture",  new(11, 45, 0), new(12, 45, 0), 0.5m, 600m, false, null, null)
+        };
+
+        var allFaculties = new List<FacultyPaymentOverview>
+        {
+            new(
+                5,
+                "Dr. M. D. Hambarde",
+                "MIT-WPU",
+                "Visiting Faculty",
+                "Professor — Research Methodology (MEC51050 · 50-50 Co-Teaching Split: 6 of 12 Lectures)",
+                1200m,
+                1200m,
+                0.5m,
+                0m,
+                600m,
+                6.0m,
+                0m,
+                7200m,
+                rmSessions.Where(s => s.Date >= new DateTime(2026, 10, 1)).ToList(),
+                rmSessions),
+            new(
+                4,
+                "Dr. Vitthal Gutte",
+                "MIT-WPU",
+                "Visiting Faculty",
+                "Professor — Research Methodology (MEC51050 · 50-50 Co-Teaching Split: 6 of 12 Lectures)",
+                1200m,
+                1200m,
+                0.5m,
+                0m,
+                600m,
+                6.0m,
+                0m,
+                7200m,
+                rmSessions.Where(s => s.Date >= new DateTime(2026, 10, 1)).ToList(),
+                rmSessions)
+        };
+
+        if (!string.IsNullOrWhiteSpace(targetFacultyFilter))
+        {
+            allFaculties = allFaculties
+                .Where(f => f.FacultyName.Contains(targetFacultyFilter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        return GenerateAllFacultyReceiptsPdf(
+            allFaculties,
+            new DateTime(2026, 9, 4),
+            new DateTime(2026, 10, 4),
+            webRootPath);
+    }
+
+    public void ExportRm5050ReceiptsToDirectory(string outputDir, string? webRootPath = null)
+    {
+        Directory.CreateDirectory(outputDir);
+
+        var combinedBytes = GenerateRm5050ReceiptsPdf(webRootPath);
+        File.WriteAllBytes(Path.Combine(outputDir, "RM_50_50_Split_Receipts_Hambarde_and_Gutte_04Sep_to_04Oct_2026.pdf"), combinedBytes);
+
+        var hambardeBytes = GenerateRm5050ReceiptsPdf(webRootPath, "Hambarde");
+        File.WriteAllBytes(Path.Combine(outputDir, "Dr_MD_Hambarde_RM_50_50_Receipt_04Sep_to_04Oct_2026.pdf"), hambardeBytes);
+
+        var gutteBytes = GenerateRm5050ReceiptsPdf(webRootPath, "Gutte");
+        File.WriteAllBytes(Path.Combine(outputDir, "Dr_Vitthal_Gutte_RM_50_50_Receipt_04Sep_to_04Oct_2026.pdf"), gutteBytes);
+    }
+
     public async Task<ExecutiveSanctionData> GetExecutiveSanctionDataAsync(
         DateTime startDate,
         DateTime endDate,
