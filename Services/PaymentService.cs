@@ -2522,6 +2522,7 @@ public class PaymentService(AppDbContext db)
     // A practical block, however long, is one practical payment unit; theory/tutorial slots are paid per lecture.
     private static readonly IReadOnlyList<TimetablePlanItem> TimetablePaymentPlan = new List<TimetablePlanItem>
     {
+        new(DayOfWeek.Friday, "Dr. Ganesh Birajdar", "Lecture", 2),
         new(DayOfWeek.Friday, "Dr. Vitthal Gutte", "Lecture", 1),
         new(DayOfWeek.Friday, "Dr. M. D. Hambarde", "Lecture", 1),
         new(DayOfWeek.Friday, "Mr. Siddu Patil", "Lecture", 3),
@@ -2529,6 +2530,7 @@ public class PaymentService(AppDbContext db)
 
         new(DayOfWeek.Saturday, "Mr. Shashidhar Ramesh", "Practical", 1),
         new(DayOfWeek.Saturday, "Mr. Shashidhar Ramesh", "Lecture", 1),
+        new(DayOfWeek.Saturday, "Dr. Ganesh Birajdar", "Lecture", 2),
         new(DayOfWeek.Saturday, "Dr. M. D. Hambarde", "Lecture", 1),
         new(DayOfWeek.Saturday, "Mr. Abhishek Joshi", "Practical", 2),
         new(DayOfWeek.Saturday, "Mr. Subodh B Patil", "Practical", 4),

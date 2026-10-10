@@ -99,6 +99,36 @@ using (var scope = app.Services.CreateScope())
 
     if (args.Contains("--export-rm-pdf"))
     {
+        var overview = await paymentSvc.GetFacultyPaymentOverviewAsync(
+            new DateTime(2026, 10, 1),
+            new DateTime(2026, 10, 4),
+            new DateTime(2026, 9, 4),
+            new DateTime(2026, 10, 4));
+
+        var allReceiptsPdf = paymentSvc.GenerateAllFacultyReceiptsPdf(
+            overview,
+            new DateTime(2026, 9, 4),
+            new DateTime(2026, 10, 4),
+            app.Environment.WebRootPath);
+        File.WriteAllBytes(Path.Combine(receiptsDir, "All_8_Faculty_Receipts_04Sep_to_04Oct_2026.pdf"), allReceiptsPdf);
+
+        var birajdarOverview = overview.FirstOrDefault(f => f.FacultyName.Contains("Birajdar", StringComparison.OrdinalIgnoreCase));
+        if (birajdarOverview != null)
+        {
+            var birajdarPdf = paymentSvc.GenerateFacultyPaymentReceiptPdf(
+                birajdarOverview,
+                new DateTime(2026, 9, 4),
+                new DateTime(2026, 10, 4),
+                app.Environment.WebRootPath);
+            File.WriteAllBytes(Path.Combine(receiptsDir, "Dr_Ganesh_Birajdar_AM_Receipt_04Sep_to_04Oct_2026.pdf"), birajdarPdf);
+        }
+
+        Console.WriteLine("=== FULL BILLING AUDIT (04 SEP 2026 - 04 OCT 2026) ===");
+        foreach (var f in overview)
+        {
+            Console.WriteLine($"{f.FacultyName,-30} | Lec: {f.MonthlyLectureCount,5:0.#} | Prac: {f.MonthlyPracticalCount,5:0.#} | Payable: INR {f.MonthlyPayableAmount,8:N0}");
+        }
+        Console.WriteLine($"TOTAL                          | Lec: {overview.Sum(x => x.MonthlyLectureCount),5:0.#} | Prac: {overview.Sum(x => x.MonthlyPracticalCount),5:0.#} | Payable: INR {overview.Sum(x => x.MonthlyPayableAmount),8:N0}");
         return;
     }
 }
