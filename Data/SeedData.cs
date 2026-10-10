@@ -813,14 +813,38 @@ public static class SeedData
         var sem = await db.Semesters.FirstOrDefaultAsync(s => s.IsActive) ?? await db.Semesters.FirstOrDefaultAsync();
         if (sem == null) return;
 
-        var startDate = new DateTime(2026, 9, 2);
-        var endDate = new DateTime(2026, 9, 4);
+        // Clean up any legacy sessions or period mistakenly placed on 2-3 September 2026
+        var legacyWrongDates = await db.Sessions
+            .Where(s => s.Date >= new DateTime(2026, 9, 2) && s.Date <= new DateTime(2026, 9, 3))
+            .ToListAsync();
+        if (legacyWrongDates.Any())
+        {
+            var legacyIds = legacyWrongDates.Select(s => s.Id).ToList();
+            var legacyAtt = await db.SessionAttendances.Where(a => legacyIds.Contains(a.SessionId)).ToListAsync();
+            if (legacyAtt.Any()) db.SessionAttendances.RemoveRange(legacyAtt);
+            db.Sessions.RemoveRange(legacyWrongDates);
+            await db.SaveChangesAsync();
+        }
+
+        var legacyPeriod = await db.PaymentPeriods.FirstOrDefaultAsync(p =>
+            p.PeriodName == "02 September - 04 September 2026"
+            || (p.StartDate == new DateTime(2026, 9, 2) && p.EndDate == new DateTime(2026, 9, 4)));
+        if (legacyPeriod != null)
+        {
+            var legacyItems = await db.PaymentLineItems.Where(l => l.PaymentPeriodId == legacyPeriod.Id).ToListAsync();
+            if (legacyItems.Any()) db.PaymentLineItems.RemoveRange(legacyItems);
+            db.PaymentPeriods.Remove(legacyPeriod);
+            await db.SaveChangesAsync();
+        }
+
+        var startDate = new DateTime(2026, 9, 4);
+        var endDate = new DateTime(2026, 9, 6);
 
         var existingSessions = await db.Sessions
             .Where(s => s.Date >= startDate && s.Date <= endDate)
             .ToListAsync();
 
-        var periodName = "02 September - 04 September 2026";
+        var periodName = "04 September - 06 September 2026";
         var period = await db.PaymentPeriods.FirstOrDefaultAsync(p => p.PeriodName == periodName || (p.StartDate == startDate && p.EndDate == endDate));
         var existingLineItems = period != null
             ? await db.PaymentLineItems.Where(l => l.PaymentPeriodId == period.Id).ToListAsync()
@@ -863,8 +887,8 @@ public static class SeedData
 
         var sessionsToSeed = new List<Session>();
 
-        // Day 1: 02 September 2026 (Wednesday) - 7 Hours (Friday Schedule of AY 2026-27 26h Timetable)
-        var d1 = new DateTime(2026, 9, 2);
+        // Day 1: Friday, 04 September 2026 - 7 Hours (Friday Schedule of Old AY 2026-27 26h Timetable)
+        var d1 = new DateTime(2026, 9, 4);
         // 09:30 - 10:30 RM (VG) Lecture
         if (gutte != null && mec51050 != null)
             sessionsToSeed.Add(new Session { Date = d1, FacultyId = gutte.Id, CourseId = mec51050.Id, ActualStartTime = new(9, 30, 0), ActualEndTime = new(10, 30, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "RM Lecture" });
@@ -887,8 +911,8 @@ public static class SeedData
         if (siddu != null && cds40010 != null)
             sessionsToSeed.Add(new Session { Date = d1, FacultyId = siddu.Id, CourseId = cds40010.Id, ActualStartTime = new(17, 45, 0), ActualEndTime = new(18, 45, 0), DurationHours = 1.0m, SessionType = "Lecture", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "ADC & CIE Lecture" });
 
-        // Day 2: 03 September 2026 (Thursday) - 7 Hours (Saturday Schedule of AY 2026-27 26h Timetable)
-        var d2 = new DateTime(2026, 9, 3);
+        // Day 2: Saturday, 05 September 2026 - 7 Hours (Saturday Schedule of Old AY 2026-27 26h Timetable)
+        var d2 = new DateTime(2026, 9, 5);
         // 08:30 - 09:30 Yoga (SR) Practical
         if (shashidhar != null && yog10030 != null)
             sessionsToSeed.Add(new Session { Date = d2, FacultyId = shashidhar.Id, CourseId = yog10030.Id, ActualStartTime = new(8, 30, 0), ActualEndTime = new(9, 30, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Yoga Session" });
@@ -911,8 +935,8 @@ public static class SeedData
         if (subodh != null && cds40030 != null)
             sessionsToSeed.Add(new Session { Date = d2, FacultyId = subodh.Id, CourseId = cds40030.Id, ActualStartTime = new(16, 45, 0), ActualEndTime = new(17, 45, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Project Lab-I" });
 
-        // Day 3: 04 September 2026 (Friday) - 8 Hours (Sunday Schedule of AY 2026-27 26h Timetable)
-        var d3 = new DateTime(2026, 9, 4);
+        // Day 3: Sunday, 06 September 2026 - 8 Hours (Sunday Schedule of Old AY 2026-27 26h Timetable)
+        var d3 = new DateTime(2026, 9, 6);
         // 08:30 - 09:30 Yoga (SR) Practical
         if (shashidhar != null && yog10030 != null)
             sessionsToSeed.Add(new Session { Date = d3, FacultyId = shashidhar.Id, CourseId = yog10030.Id, ActualStartTime = new(8, 30, 0), ActualEndTime = new(9, 30, 0), DurationHours = 1.0m, SessionType = "Practical", Status = SessionStatus.Conducted, IsApproved = true, ApprovedBy = "Academic Operations & DCMS", LoggedBy = "Administrator", Notes = "Yoga Session" });
@@ -963,7 +987,7 @@ public static class SeedData
             await db.SaveChangesAsync();
         }
 
-        // Payment Period for Sep 02 - 04
+        // Payment Period for Sep 04 - 06
         if (period == null)
         {
             period = new PaymentPeriod

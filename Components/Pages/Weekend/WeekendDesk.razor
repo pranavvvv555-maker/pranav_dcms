@@ -30,6 +30,9 @@
                 <MudText Typo="Typo.h6">@WeekendLabel</MudText>
             </div>
             <div class="weekend-desk-picker__controls">
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary" OnClick="JumpToEarlySeptemberWeekend" Style="font-weight:700; margin-right:6px;">
+                    04–06 Sep (Old Timetable)
+                </MudButton>
                 <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Color="Color.Primary" OnClick="@(() => ShiftWeekend(-7))" aria-label="Previous weekend" />
                 <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="ShowCurrentWeekend">Current weekend</MudButton>
                 <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Primary" OnClick="@(() => ShiftWeekend(7))" aria-label="Next weekend" />
@@ -158,7 +161,7 @@
                 <div class="d-flex align-center gap-1 mt-2 flex-wrap">
                     <span style="font-size:0.75rem; font-weight:700; color:#64748b; margin-right:4px;">Day Schedule:</span>
                     <MudChip T="int" Size="Size.Small" Variant="@(_overrideDayPlanIndex == 0 ? Variant.Filled : Variant.Outlined)" Color="Color.Primary" OnClick="@(() => _overrideDayPlanIndex = 0)">
-                        Auto by Date @(_selectedDate.Date == new DateTime(2026, 9, 2) ? "(Day 1 · Friday)" : _selectedDate.Date == new DateTime(2026, 9, 3) ? "(Day 2 · Saturday)" : _selectedDate.Date == new DateTime(2026, 9, 4) ? "(Day 3 · Sunday)" : "")
+                        Auto by Date @(_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6) ? "(04–06 Sep · Old 26h Timetable)" : "")
                     </MudChip>
                     <MudChip T="int" Size="Size.Small" Variant="@(_overrideDayPlanIndex == 1 ? Variant.Filled : Variant.Outlined)" Color="Color.Secondary" OnClick="@(() => _overrideDayPlanIndex = 1)">
                         Day 1 (Friday)
@@ -1025,21 +1028,16 @@
     {
         get
         {
-            if (_selectedDate.Date >= new DateTime(2026, 9, 1) && _selectedDate.Date <= new DateTime(2026, 9, 6))
+            // 4, 5, 6 September 2026 use the Old Fri–Sun 26h Timetable
+            if (_weekendStart.Date == new DateTime(2026, 9, 3)
+                || (_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6)))
             {
                 return new List<DateTime>
                 {
-                    new(2026, 9, 2), // Wednesday (Day 1)
-                    new(2026, 9, 3), // Thursday (Day 2)
-                    new(2026, 9, 4), // Friday (Day 3)
-                    new(2026, 9, 5), // Saturday
-                    new(2026, 9, 6)  // Sunday
+                    new(2026, 9, 4), // Friday (04 Sep)
+                    new(2026, 9, 5), // Saturday (05 Sep)
+                    new(2026, 9, 6)  // Sunday (06 Sep)
                 };
-            }
-
-            if (_selectedDate.DayOfWeek == DayOfWeek.Wednesday)
-            {
-                return Enumerable.Range(0, 5).Select(day => _selectedDate.Date.AddDays(day));
             }
 
             return Enumerable.Range(0, 4).Select(day => _weekendStart.AddDays(day));
@@ -1057,16 +1055,10 @@
             if (_overrideDayPlanIndex == 3)
                 return WeekendTimetable.Where(item => item.Day == DayOfWeek.Sunday);
 
-            // Special handling for the 2, 3, 4 September block:
-            if (_selectedDate.Date == new DateTime(2026, 9, 2))
-                return WeekendTimetable.Where(item => item.Day == DayOfWeek.Friday);
-            if (_selectedDate.Date == new DateTime(2026, 9, 3))
-                return WeekendTimetable.Where(item => item.Day == DayOfWeek.Saturday);
-            if (_selectedDate.Date == new DateTime(2026, 9, 4))
+            // 4, 5, 6 September 2026 always use the Old Timetable (Official AY 2026-27 Fri–Sun 26 Hrs)
+            if (_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6))
             {
-                return _selectedTimetableVersion == 1
-                    ? WeekendTimetable.Where(item => item.Day == DayOfWeek.Sunday)
-                    : OfficialSem1Timetable.Where(item => item.Day == DayOfWeek.Friday);
+                return WeekendTimetable.Where(item => item.Day == _selectedDate.DayOfWeek);
             }
 
             return (_selectedTimetableVersion == 2 ? OfficialSem1Timetable : WeekendTimetable)
@@ -1091,7 +1083,9 @@
     private string SubmitDayButtonLabel => !_daySessions.Any()
         ? "No classes to submit"
         : CanSubmitDay ? "Submit completed day" : "Day submitted";
-    private string WeekendLabel => $"{_weekendStart:dd MMM} – {_weekendStart.AddDays(3):dd MMM yyyy}";
+    private string WeekendLabel => (_weekendStart.Date == new DateTime(2026, 9, 3) || (_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6)))
+        ? "04 Sep – 06 Sep 2026 (Old Timetable · Fri–Sun)"
+        : $"{_weekendStart:dd MMM} – {_weekendStart.AddDays(3):dd MMM yyyy}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -1151,9 +1145,22 @@
 
     private bool IsSelectedDate(DateTime date) => date.Date == _selectedDate.Date;
 
+    private async Task JumpToEarlySeptemberWeekend()
+    {
+        _weekendStart = new DateTime(2026, 9, 3);
+        _selectedTimetableVersion = 1;
+        await SetSelectedDate(new DateTime(2026, 9, 4));
+    }
+
     private async Task ShiftWeekend(int days)
     {
         _weekendStart = _weekendStart.AddDays(days);
+        if (_weekendStart.Date == new DateTime(2026, 9, 3))
+        {
+            _selectedTimetableVersion = 1;
+            await SetSelectedDate(new DateTime(2026, 9, 4));
+            return;
+        }
         var targetDate = (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
             ? _weekendStart.AddDays(1)
             : _weekendStart;
@@ -1173,6 +1180,10 @@
     {
         _selectedDate = date.Date;
         _overrideDayPlanIndex = 0;
+        if (_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6))
+        {
+            _selectedTimetableVersion = 1;
+        }
         await LoadDayData();
     }
 
@@ -1181,6 +1192,10 @@
         if (!date.HasValue) return;
         _selectedDate = date.Value.Date;
         _weekendStart = MostRecentThursday(_selectedDate);
+        if (_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6))
+        {
+            _selectedTimetableVersion = 1;
+        }
         await LoadDayData();
     }
 
