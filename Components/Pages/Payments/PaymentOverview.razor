@@ -130,7 +130,7 @@
                             04 Sep – 06 Sep
                         </MudButton>
                         <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary" OnClick="PresetSepOctCycle" Style="font-weight:700;">
-                            11 Sep – 04 Oct
+                            10 Sep – 04 Oct
                         </MudButton>
                         <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success" OnClick="PresetFullSepOctCycle" Style="font-weight:700;">
                             04 Sep – 04 Oct
@@ -1156,7 +1156,7 @@
     }
 
     private async Task PresetEarlySepCycle() => await SetPresetRange(new DateTime(2026, 9, 4), new DateTime(2026, 9, 6));
-    private async Task PresetSepOctCycle() => await SetPresetRange(new DateTime(2026, 9, 11), new DateTime(2026, 10, 4));
+    private async Task PresetSepOctCycle() => await SetPresetRange(new DateTime(2026, 9, 10), new DateTime(2026, 10, 4));
     private async Task PresetFullSepOctCycle() => await SetPresetRange(new DateTime(2026, 9, 4), new DateTime(2026, 10, 4));
     private async Task PresetThisWeekend() => await SetPresetRange(WeekendStart, WeekendEnd);
     private async Task PresetFirstHalf() => await SetPresetRange(new DateTime(_referenceDate.Year, _referenceDate.Month, 1), new DateTime(_referenceDate.Year, _referenceDate.Month, 15));

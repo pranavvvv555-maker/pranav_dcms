@@ -1136,7 +1136,7 @@ public static class SeedData
             await db.SaveChangesAsync();
         }
 
-        var startDate = new DateTime(2026, 9, 11);
+        var startDate = new DateTime(2026, 9, 10);
         var endDate = new DateTime(2026, 10, 4);
 
         // Academic Holidays in this cycle:
@@ -1156,8 +1156,17 @@ public static class SeedData
             .Where(s => s.Date >= startDate && s.Date <= endDate)
             .ToListAsync();
 
-        var periodName = "11 September - 04 October 2026";
-        var period = await db.PaymentPeriods.FirstOrDefaultAsync(p => p.PeriodName == periodName || (p.StartDate == startDate && p.EndDate == endDate));
+        var periodName = "10 September - 04 October 2026";
+        var period = await db.PaymentPeriods.FirstOrDefaultAsync(p =>
+            p.PeriodName == periodName
+            || p.PeriodName == "11 September - 04 October 2026"
+            || (p.StartDate >= new DateTime(2026, 9, 10) && p.StartDate <= new DateTime(2026, 9, 11) && p.EndDate == endDate));
+        if (period != null)
+        {
+            period.PeriodName = periodName;
+            period.StartDate = startDate;
+            period.EndDate = endDate;
+        }
         var existingLineItems = period != null
             ? await db.PaymentLineItems.Where(l => l.PaymentPeriodId == period.Id).ToListAsync()
             : new List<PaymentLineItem>();
@@ -1178,10 +1187,10 @@ public static class SeedData
         var hambardeItem = existingLineItems.FirstOrDefault(l => hambarde != null && l.FacultyId == hambarde.Id);
         var gutteItem = existingLineItems.FirstOrDefault(l => gutte != null && l.FacultyId == gutte.Id);
 
-        if (existingSessions.Count == 74 && existingSessions.Sum(s => s.DurationHours) == 74.0m
-            && existingLineItems.Any() && existingLineItems.Sum(l => l.TotalHours) == 74.0m
-            && hambardeItem != null && hambardeItem.TotalHours == 3.5m
-            && gutteItem != null && gutteItem.TotalHours == 9.5m
+        if (existingSessions.Count == 79 && existingSessions.Sum(s => s.DurationHours) == 79.0m
+            && existingLineItems.Any() && existingLineItems.Sum(l => l.TotalHours) == 79.0m
+            && hambardeItem != null && hambardeItem.TotalHours == 4.0m
+            && gutteItem != null && gutteItem.TotalHours == 12.0m
             && !existingSessions.Any(s => s.FacultyId == bankolli?.Id || s.FacultyId == birajdar?.Id))
         {
             return;
@@ -1189,6 +1198,9 @@ public static class SeedData
 
         if (existingSessions.Any())
         {
+            var sessionIds = existingSessions.Select(s => s.Id).ToList();
+            var att = await db.SessionAttendances.Where(a => sessionIds.Contains(a.SessionId)).ToListAsync();
+            if (att.Any()) db.SessionAttendances.RemoveRange(att);
             db.Sessions.RemoveRange(existingSessions);
             await db.SaveChangesAsync();
         }

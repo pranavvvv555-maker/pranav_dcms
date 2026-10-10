@@ -988,7 +988,7 @@
     private List<Course> _courses = new();
     private DateTime _weekendStart = MostRecentThursday(DateTime.Today);
     private DateTime _selectedDate = DateTime.Today;
-    private int _selectedTimetableVersion = 1; // Default: Official AY 2026-27 Sem-I (26 Hrs, Fri–Sun)
+    private int _selectedTimetableVersion = 2; // Default: New Timetable (Thu–Sun, 28 Hrs); 4–6 Sep uses Old Timetable (Fri–Sun, 26 Hrs)
     private int _overrideDayPlanIndex = 0; // 0 = Auto by date, 1 = Day 1 (Friday), 2 = Day 2 (Saturday), 3 = Day 3 (Sunday)
     private int _activeTab;
     private bool _logDialogVisible;
@@ -1161,10 +1161,8 @@
             await SetSelectedDate(new DateTime(2026, 9, 4));
             return;
         }
-        var targetDate = (_selectedTimetableVersion == 1 && _selectedDate.DayOfWeek == DayOfWeek.Thursday)
-            ? _weekendStart.AddDays(1)
-            : _weekendStart;
-        await SetSelectedDate(targetDate);
+        _selectedTimetableVersion = 2;
+        await SetSelectedDate(_weekendStart);
     }
 
     private async Task ShowCurrentWeekend()
@@ -1184,6 +1182,10 @@
         {
             _selectedTimetableVersion = 1;
         }
+        else
+        {
+            _selectedTimetableVersion = 2;
+        }
         await LoadDayData();
     }
 
@@ -1195,6 +1197,10 @@
         if (_selectedDate.Date >= new DateTime(2026, 9, 4) && _selectedDate.Date <= new DateTime(2026, 9, 6))
         {
             _selectedTimetableVersion = 1;
+        }
+        else
+        {
+            _selectedTimetableVersion = 2;
         }
         await LoadDayData();
     }
