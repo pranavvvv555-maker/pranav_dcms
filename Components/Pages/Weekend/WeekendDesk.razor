@@ -217,9 +217,17 @@
                             <MudText Typo="Typo.subtitle1" Style="@(isCancelled ? "text-decoration:line-through; color:#94a3b8;" : "")">
                                 @(session?.Course.CourseName ?? plan.CourseName)
                             </MudText>
-                            <MudText Typo="Typo.body2" Style="@(isCancelled ? "color:#94a3b8;" : "")">
-                                @(session?.Faculty.FullName ?? plan.FacultyLabel)
-                            </MudText>
+                            <div class="d-flex align-center flex-wrap gap-1">
+                                <MudText Typo="Typo.body2" Style="@(isCancelled ? "color:#94a3b8;" : "")">
+                                    @(session?.Faculty.FullName ?? plan.FacultyLabel)
+                                </MudText>
+                                @if ((session?.Course.CourseCode ?? plan.CourseCode) == "MEC51050")
+                                {
+                                    <span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.65rem; font-weight:800; padding:1px 6px;">
+                                        50-50 RM Split (Hambarde & Gutte)
+                                    </span>
+                                }
+                            </div>
                             <div class="timetable-plan-card__footer">
                                 <div>
                                     <span>@FormatTime(plan.StartTime) – @FormatTime(plan.EndTime)</span>
@@ -228,6 +236,11 @@
                                         if (isCancelled)
                                         {
                                             <small style="color:#ef4444; font-weight:700;">₹0 (Removed from payment)</small>
+                                        }
+                                        else if ((session.Course?.CourseCode ?? plan.CourseCode) == "MEC51050")
+                                        {
+                                            var totalAmt = GetSessionPaymentAmount(session.Id);
+                                            <small class="timetable-plan-card__payment">₹@totalAmt.ToString("N0") payment (50-50 Split: ₹@((totalAmt * 0.5m).ToString("N0")) each)</small>
                                         }
                                         else
                                         {
@@ -650,7 +663,7 @@
             @foreach (var payment in DayPaymentSummary)
             {
                 <div>
-                    <span>@payment.FacultyName · @payment.LectureCount lectures · @payment.PracticalCount practicals</span>
+                    <span>@payment.FacultyName @(payment.HasRmSplit ? "(50-50 RM Split)" : "") · @payment.LectureCount.ToString("0.#") lectures · @payment.PracticalCount.ToString("0.#") practicals</span>
                     <strong>₹@payment.Amount.ToString("N0")</strong>
                 </div>
             }
@@ -1069,9 +1082,10 @@
         .GroupBy(item => new { item.FacultyId, item.FacultyName })
         .Select(group => new DayFacultyPaymentSummary(
             group.Key.FacultyName,
-            group.Count(item => item.SessionType is "Lecture" or "Tutorial"),
-            group.Count(item => item.SessionType is not ("Lecture" or "Tutorial")),
-            group.Sum(item => item.Amount)))
+            group.Where(item => item.SessionType is "Lecture" or "Tutorial").Sum(item => item.Units),
+            group.Where(item => item.SessionType is not ("Lecture" or "Tutorial")).Sum(item => item.Units),
+            group.Sum(item => item.Amount),
+            group.Any(item => item.IsRmSplit)))
         .OrderBy(item => item.FacultyName)
         .ToList();
     private string SubmitDayButtonLabel => !_daySessions.Any()
@@ -1612,15 +1626,16 @@
             session.ActualStartTime == plan.StartTime);
 
     private decimal GetSessionPaymentAmount(int sessionId) =>
-        _sessionPaymentAmounts.FirstOrDefault(item => item.SessionId == sessionId)?.Amount ?? 0m;
+        _sessionPaymentAmounts.Where(item => item.SessionId == sessionId).Sum(item => item.Amount);
 
     private static string FormatTime(TimeSpan time) => DateTime.Today.Add(time).ToString("h:mm tt");
 
     private sealed record DayFacultyPaymentSummary(
         string FacultyName,
-        int LectureCount,
-        int PracticalCount,
-        decimal Amount);
+        decimal LectureCount,
+        decimal PracticalCount,
+        decimal Amount,
+        bool HasRmSplit = false);
 
     private sealed record TimetablePlanItem(
         DayOfWeek Day,

@@ -39,13 +39,21 @@
                     <Columns>
                         <TemplateColumn Title="Professor">
                             <CellTemplate>
-                                <MudText Typo="Typo.subtitle2">@context.Item.FacultyName</MudText>
+                                <div class="d-flex align-center flex-wrap gap-1">
+                                    <MudText Typo="Typo.subtitle2">@context.Item.FacultyName</MudText>
+                                    @if (context.Item.FacultyName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase) || context.Item.FacultyName.Contains("Gutte", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.68rem; font-weight:800; padding:1px 7px;">
+                                            50-50 RM Split
+                                        </span>
+                                    }
+                                </div>
                                 <MudText Typo="Typo.caption">@context.Item.Role</MudText>
                             </CellTemplate>
                         </TemplateColumn>
                         <TemplateColumn Title="Classes">
                             <CellTemplate>
-                                <span class="class-count"><b>@context.Item.LectureCount</b> lectures · <b>@context.Item.PracticalCount</b> practicals</span>
+                                <span class="class-count"><b>@context.Item.LectureCount.ToString("0.#")</b> lectures · <b>@context.Item.PracticalCount.ToString("0.#")</b> practicals</span>
                             </CellTemplate>
                         </TemplateColumn>
                         <TemplateColumn Title="Fees">
@@ -135,11 +143,11 @@
     {
         public string FacultyName { get; set; } = "";
         public string Role { get; set; } = "";
-        public int LectureCount { get; set; }
-        public int PracticalCount { get; set; }
+        public decimal LectureCount { get; set; }
+        public decimal PracticalCount { get; set; }
         public decimal LectureRate { get; set; }
         public decimal PracticalRate { get; set; }
-        public decimal EstimatedPay => (LectureCount * LectureRate) + (PracticalCount * PracticalRate);
+        public decimal EstimatedPay { get; set; }
     }
 
     private List<FacultySummaryRow> _monthlySummary = new();
@@ -148,25 +156,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var faculties = await FacultySvc.GetAllAsync();
         var today = DateTime.Today;
         _monthStart = new DateTime(today.Year, today.Month, 1);
         _monthEnd = _monthStart.AddMonths(1).AddDays(-1);
 
-        foreach (var faculty in faculties.Where(faculty => faculty.IsActive))
+        var overview = await PaymentSvc.GetFacultyPaymentOverviewAsync(_monthStart, _monthEnd, _monthStart, _monthEnd);
+        _monthlySummary = overview.Select(item => new FacultySummaryRow
         {
-            var classCounts = await SessionSvc.GetClassCountsAsync(faculty.Id, _monthStart, _monthEnd);
-            var rates = await FacultySvc.GetCurrentClassRatesAsync(faculty.Id);
-            _monthlySummary.Add(new FacultySummaryRow
-            {
-                FacultyName = faculty.FullName,
-                Role = faculty.Role,
-                LectureCount = classCounts.LectureCount,
-                PracticalCount = classCounts.PracticalCount,
-                LectureRate = rates?.LectureRateINR ?? 0,
-                PracticalRate = rates?.PracticalRateINR ?? 0
-            });
-        }
+            FacultyName = item.FacultyName,
+            Role = item.Role,
+            LectureCount = item.MonthlyLectureCount,
+            PracticalCount = item.MonthlyPracticalCount,
+            LectureRate = item.LectureRate,
+            PracticalRate = item.PracticalRate,
+            EstimatedPay = item.MonthlyPayableAmount
+        }).ToList();
     }
 
     private async Task DownloadMonthlySummaryPdf()

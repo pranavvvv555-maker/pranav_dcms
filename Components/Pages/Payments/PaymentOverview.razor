@@ -185,7 +185,7 @@
             <div>
                 <div class="payover-kpi__value">₹@TotalWeekendPay.ToString("N0")</div>
                 <div class="payover-kpi__caption">
-                    <b>@TotalWeekendLectures</b> lectures · <b>@TotalWeekendPracticals</b> practicals (@WeekendLabelShort)
+                    <b>@TotalWeekendLectures.ToString("0.#")</b> lectures · <b>@TotalWeekendPracticals.ToString("0.#")</b> practicals (@WeekendLabelShort)
                 </div>
             </div>
         </div>
@@ -240,7 +240,7 @@
                 <span class="premium-eyebrow">Faculty Register & Remuneration · @MonthLabel</span>
                 <MudText Typo="Typo.h6" Class="payover-table-header__title">Conducted Classes and Calculated Compensation</MudText>
                 <div class="payover-table-header__subtitle">
-                    Showing @FilteredFaculty.Count() professors · <b>@FilteredMonthLectures</b> Lectures & <b>@FilteredMonthPracticals</b> Practicals in @MonthLabel.
+                    Showing @FilteredFaculty.Count() professors · <b>@FilteredMonthLectures.ToString("0.#")</b> Lectures & <b>@FilteredMonthPracticals.ToString("0.#")</b> Practicals in @MonthLabel.
                 </div>
             </div>
 
@@ -294,6 +294,12 @@
                                             <span class="role-tag">
                                                 @(string.IsNullOrWhiteSpace(context.Item.Designation) ? context.Item.Role : $"{context.Item.Designation} · {context.Item.Role}")
                                             </span>
+                                            @if (context.Item.FacultyName.Contains("Hambarde", StringComparison.OrdinalIgnoreCase) || context.Item.FacultyName.Contains("Gutte", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.68rem; font-weight:800; padding:1px 7px;">
+                                                    50-50 RM Split
+                                                </span>
+                                            }
                                         </div>
                                     </div>
                                 </div>
