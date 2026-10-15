@@ -1428,6 +1428,7 @@ public class PaymentService(AppDbContext db)
         File.WriteAllBytes(Path.Combine(outputDir, "Dr_Vitthal_Gutte_RM_50_50_Receipt_04Sep_to_04Oct_2026.pdf"), gutteBytes);
 
         var cover6Bytes = GenerateSelected6ReceiptsCoverPagePdf(webRootPath);
+        File.WriteAllBytes(Path.Combine(outputDir, "Executive_Cover_Page_6_Faculties_04Sep_to_04Oct_2026.pdf"), cover6Bytes);
         File.WriteAllBytes(Path.Combine(outputDir, "Executive_Cover_Page_6_Receipts_04Sep_to_04Oct_2026.pdf"), cover6Bytes);
     }
 
@@ -1437,7 +1438,7 @@ public class PaymentService(AppDbContext db)
         {
             new(
                 1,
-                "VOUCH-005",
+                "VOUCH-007",
                 7,
                 "Mr. Vivekanand P Navadagi",
                 "NIRVAA",
@@ -1449,28 +1450,28 @@ public class PaymentService(AppDbContext db)
                 27600m),
             new(
                 2,
-                "VOUCH-012",
-                12,
-                "Mr. Shashidhar Ramesh",
-                "NIRVAA",
-                "NIRVAA / Yoga Teacher",
-                "Yoga (YOG10030), Scientific Studies of Mind, Matter, Spirit & Consciousness (PCE10040)",
-                "20 Sessions Conducted (10 Theory Lectures + 10 Practical Labs · Sat & Sun, 8:30–10:30 AM)",
-                20.0m,
+                "VOUCH-004",
+                4,
+                "Dr. Vitthal Gutte",
+                "MIT-WPU",
+                "MIT-WPU / Visiting Faculty (Associate Professor)",
+                "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]",
+                "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
+                6.0m,
                 1200m,
-                24000m),
+                7200m),
             new(
                 3,
-                "VOUCH-006",
-                6,
-                "Mr. Subodh B Patil",
-                "NIRVAA",
-                "NIRVAA / Project Manager",
-                "Project Lab-I (CDS40030)",
-                "20 Sessions Conducted (20 Practical Labs · Sat & Sun)",
-                20.0m,
+                "VOUCH-005",
+                5,
+                "Dr. M. D. Hambarde",
+                "MIT-WPU",
+                "MIT-WPU / Visiting Faculty (Professor & PG Coordinator)",
+                "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]",
+                "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
+                6.0m,
                 1200m,
-                24000m),
+                7200m),
             new(
                 4,
                 "VOUCH-013",
@@ -1485,28 +1486,28 @@ public class PaymentService(AppDbContext db)
                 15600m),
             new(
                 5,
-                "VOUCH-005",
-                5,
-                "Dr. M. D. Hambarde",
-                "MIT-WPU",
-                "MIT-WPU / Visiting Faculty (Professor)",
-                "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]",
-                "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
-                6.0m,
+                "VOUCH-006",
+                6,
+                "Mr. Subodh B Patil",
+                "NIRVAA",
+                "NIRVAA / Project Manager",
+                "Project Lab-I (CDS40030)",
+                "20 Sessions Conducted (20 Practical Labs · Sat & Sun)",
+                20.0m,
                 1200m,
-                7200m),
+                24000m),
             new(
                 6,
-                "VOUCH-004",
-                4,
-                "Dr. Vitthal Gutte",
-                "MIT-WPU",
-                "MIT-WPU / Visiting Faculty (Professor)",
-                "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]",
-                "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)",
-                6.0m,
+                "VOUCH-012",
+                12,
+                "Mr. Shashidhar Ramesh",
+                "NIRVAA",
+                "NIRVAA / Yoga & Life Sciences Faculty",
+                "Yoga (YOG10030), Scientific Studies of Mind, Matter, Spirit & Consciousness (PCE10040)",
+                "20 Sessions Conducted (10 Theory Lectures + 10 Practical Labs · Sat & Sun, 8:30–10:30 AM)",
+                20.0m,
                 1200m,
-                7200m)
+                24000m)
         };
 
         var totalHours = items.Sum(x => x.Hours); // 88.0h
@@ -1514,7 +1515,7 @@ public class PaymentService(AppDbContext db)
         var amountInWords = NumberToWordsINR(totalAmount);
         var cycle = "04 Sep 2026 – 04 Oct 2026";
 
-        var narrative = "Submitted for executive approval is the audited faculty remuneration schedule and individual signed payment vouchers from the Department & Course Management System (DCMS) for sessions conducted strictly during the 04 Sep 2026 – 04 Oct 2026 billing cycle under the MIT-WPU × NIRVAA M.Tech in DCSE program. All 88 teaching hours across the 6 enclosed faculty vouchers have been verified against the Old Timetable (04–06 Sep) and New Timetable (10 Sep – 04 Oct), with university holidays (18 Sep, 25 Sep, 02 Oct) and the 03 Oct substitution strictly accounted for at the approved rate of INR 1,200/hr. Specifically, Dr. Ganesh Birajdar conducted 13.0 hours (INR 15,600/-) in Advanced Mathematics (MEC50010), while Dr. M. D. Hambarde and Dr. Vitthal Gutte are each billed for 6.0 hours (INR 7,200/- each) under the 50-50 co-teaching split of 12 Research Methodology (MEC51050) sessions.";
+        var narrative = "Submitted for executive approval is the audited faculty remuneration schedule and individual signed payment vouchers from the Department & Course Management System (DCMS) for sessions conducted strictly during the 04 Sep 2026 – 04 Oct 2026 billing cycle under the MIT-WPU × NIRVAA M.Tech in DCSE program. All 88 teaching hours across the 6 approved faculties have been verified against the academic timetable (Old Timetable for 04–06 Sep and New Timetable for 10 Sep – 04 Oct), with university holidays (18 Sep Gouri Poojan, 25 Sep Anant Chaturdashi, 02 Oct Gandhi Jayanti) and the 03 Oct RM substitution strictly accounted for at the approved rate of INR 1,200/hr. Specifically, Research Methodology (MEC51050) is co-taught with a 50–50 remuneration split between Dr. Vitthal Gutte and Dr. M. D. Hambarde (6.0 hours / INR 7,200/- each).";
 
         var approvalMatrix = new List<ExecutiveSignatory>
         {
@@ -1544,6 +1545,112 @@ public class PaymentService(AppDbContext db)
             approvalMatrix);
 
         return GenerateExecutiveSanctionCoverPagePdf(sanctionData, webRootPath);
+    }
+
+    public byte[] GenerateSelected6FacultiesDossierPdf(string? webRootPath = null)
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        byte[]? nirvaaLogo = null;
+        byte[]? mitLogo = null;
+
+        try
+        {
+            if (!string.IsNullOrEmpty(webRootPath))
+            {
+                var nirvaaPath = Path.Combine(webRootPath, "images", "nirvaa.jpg");
+                if (File.Exists(nirvaaPath)) nirvaaLogo = File.ReadAllBytes(nirvaaPath);
+
+                var mitPath = Path.Combine(webRootPath, "images", "mit-wpu.jpg");
+                if (File.Exists(mitPath)) mitLogo = File.ReadAllBytes(mitPath);
+            }
+        }
+        catch { }
+
+        var items = new List<ExecutiveSanctionFacultyItem>
+        {
+            new(1, "VOUCH-007", 7, "Mr. Vivekanand P Navadagi", "NIRVAA", "NIRVAA / Cloud Architect", "Advanced Cloud Computing & Data Storage System (CDS40020)", "23 Sessions Conducted (13 Theory Lectures + 10 Practical Labs · Thu & Sun)", 23.0m, 1200m, 27600m),
+            new(2, "VOUCH-004", 4, "Dr. Vitthal Gutte", "MIT-WPU", "MIT-WPU / Visiting Faculty (Associate Professor)", "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]", "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)", 6.0m, 1200m, 7200m),
+            new(3, "VOUCH-005", 5, "Dr. M. D. Hambarde", "MIT-WPU", "MIT-WPU / Visiting Faculty (Professor & PG Coordinator)", "Research Methodology for Engineers (MEC51050) [50-50 Co-Teaching Split]", "6.0h Billed (50-50 Split of 12 RM Sessions · 04 Sep – 04 Oct 2026)", 6.0m, 1200m, 7200m),
+            new(4, "VOUCH-013", 13, "Dr. Ganesh Birajdar", "MIT-WPU", "MIT-WPU / Professor", "Advanced Mathematics (MEC50010)", "13 Sessions Conducted (9 Theory Lectures + 4 Tutorials · Fri, Sat & Sun · Excl. Holidays & 03 Oct Sub)", 13.0m, 1200m, 15600m),
+            new(5, "VOUCH-006", 6, "Mr. Subodh B Patil", "NIRVAA", "NIRVAA / Project Manager", "Project Lab-I (CDS40030)", "20 Sessions Conducted (20 Practical Labs · Sat & Sun)", 20.0m, 1200m, 24000m),
+            new(6, "VOUCH-012", 12, "Mr. Shashidhar Ramesh", "NIRVAA", "NIRVAA / Yoga & Life Sciences Faculty", "Yoga (YOG10030), Scientific Studies of Mind, Matter, Spirit & Consciousness (PCE10040)", "20 Sessions Conducted (10 Theory Lectures + 10 Practical Labs · Sat & Sun, 8:30–10:30 AM)", 20.0m, 1200m, 24000m)
+        };
+
+        var totalHours = items.Sum(x => x.Hours);
+        var totalAmount = items.Sum(x => x.PayableAmount);
+        var amountInWords = NumberToWordsINR(totalAmount);
+        var cycle = "04 Sep 2026 – 04 Oct 2026";
+        var narrative = "Submitted for executive approval is the audited faculty remuneration schedule and individual signed payment vouchers from the Department & Course Management System (DCMS) for sessions conducted strictly during the 04 Sep 2026 – 04 Oct 2026 billing cycle under the MIT-WPU × NIRVAA M.Tech in DCSE program. All 88 teaching hours across the 6 approved faculties have been verified against the academic timetable (Old Timetable for 04–06 Sep and New Timetable for 10 Sep – 04 Oct), with university holidays (18 Sep Gouri Poojan, 25 Sep Anant Chaturdashi, 02 Oct Gandhi Jayanti) and the 03 Oct RM substitution strictly accounted for at the approved rate of INR 1,200/hr. Specifically, Research Methodology (MEC51050) is co-taught with a 50–50 remuneration split between Dr. Vitthal Gutte and Dr. M. D. Hambarde (6.0 hours / INR 7,200/- each).";
+
+        var approvalMatrix = new List<ExecutiveSignatory>
+        {
+            new(1, "1. TECHNICAL REVIEW", "Mr. Siddu Patil", "Head – IT & Analytics", "Curriculum & Session Conduction Verification", "Approved & Cleared", null, null),
+            new(2, "2. FINANCE CLEARANCE", "Mr. Yadnesh Bauskar", "Director - Strategy & Finance", "Budget Sanction & Accounts Clearance", "Approved & Cleared", null, null),
+            new(3, "3. ACADEMIC ENDORSEMENT", "Mr. Anup Goel", "Director – Academics & Training", "Academic Program & Faculty Conduction Sign-off", "Approved & Cleared", null, null),
+            new(4, "4. FINAL SANCTION", "Dr. Jagdish Shinde", "Managing Director", "Executive Sanction & Banking Release", "Approved & Cleared", null, null),
+        };
+
+        var sanctionData = new ExecutiveSanctionData(
+            "NIRVAA/MIT-WPU/REM/202609/01",
+            new DateTime(2026, 10, 10),
+            cycle,
+            new DateTime(2026, 9, 4),
+            new DateTime(2026, 10, 4),
+            "Audited & Recommended",
+            "Head of Human Resources & Accounts, NIRVAA Solutions Pvt. Ltd.",
+            "Academic Operations & DCMS",
+            $"APPROVAL & DISBURSEMENT SANCTION FOR {cycle.ToUpper()} FACULTY REMUNERATION (TOTAL: INR {totalAmount:N0}/-)",
+            narrative,
+            items,
+            totalHours,
+            totalAmount,
+            amountInWords,
+            "Cash / Bank Transfer",
+            "(1) Signed DCMS Vouchers VOUCH-004 to VOUCH-013 (6 Enclosed Vouchers) | (2) Student Attendance Logs | (3) Weekly Conduction Audit",
+            approvalMatrix);
+
+        var rmSessions = new List<FacultyConductedSessionItem>
+        {
+            new(1,  new DateTime(2026, 9, 4),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Lecture",  new(9, 30, 0),  new(10, 30, 0), 0.5m, 600m, false, null, null),
+            new(2,  new DateTime(2026, 9, 4),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Tutorial", new(10, 45, 0), new(11, 45, 0), 0.5m, 600m, false, null, null),
+            new(3,  new DateTime(2026, 9, 5),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Lecture",  new(11, 45, 0), new(12, 45, 0), 0.5m, 600m, false, null, null),
+            new(4,  new DateTime(2026, 9, 6),  "MEC51050", "Research Methodology (Old Timetable · 50-50 Split)", "Lecture",  new(10, 45, 0), new(11, 45, 0), 0.5m, 600m, false, null, null),
+            new(5,  new DateTime(2026, 9, 10), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(6,  new DateTime(2026, 9, 11), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Lecture",  new(10, 45, 0), new(11, 45, 0), 0.5m, 600m, false, null, null),
+            new(7,  new DateTime(2026, 9, 11), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Lecture",  new(11, 45, 0), new(12, 45, 0), 0.5m, 600m, false, null, null),
+            new(8,  new DateTime(2026, 9, 11), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Lecture",  new(16, 45, 0), new(17, 45, 0), 0.5m, 600m, false, null, null),
+            new(9,  new DateTime(2026, 9, 17), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(10, new DateTime(2026, 9, 24), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(11, new DateTime(2026, 10, 1), "MEC51050", "Research Methodology (New Timetable · 50-50 Split)", "Tutorial", new(13, 30, 0), new(14, 30, 0), 0.5m, 600m, false, null, null),
+            new(12, new DateTime(2026, 10, 3), "MEC51050", "Research Methodology (Sat 03 Oct Sub · 50-50 Split)", "Lecture",  new(11, 45, 0), new(12, 45, 0), 0.5m, 600m, false, null, null)
+        };
+
+        var gutteFaculty = new FacultyPaymentOverview(
+            4, "Dr. Vitthal Gutte", "MIT-WPU", "Visiting Faculty",
+            "Professor — Research Methodology (MEC51050 · 50-50 Co-Teaching Split: 6 of 12 Lectures)",
+            1200m, 1200m, 0.5m, 0m, 600m, 6.0m, 0m, 7200m,
+            rmSessions.Where(s => s.Date >= new DateTime(2026, 10, 1)).ToList(), rmSessions);
+
+        var hambardeFaculty = new FacultyPaymentOverview(
+            5, "Dr. M. D. Hambarde", "MIT-WPU", "Visiting Faculty",
+            "Professor — Research Methodology (MEC51050 · 50-50 Co-Teaching Split: 6 of 12 Lectures)",
+            1200m, 1200m, 0.5m, 0m, 600m, 6.0m, 0m, 7200m,
+            rmSessions.Where(s => s.Date >= new DateTime(2026, 10, 1)).ToList(), rmSessions);
+
+        var sDate = new DateTime(2026, 9, 4);
+        var eDate = new DateTime(2026, 10, 4);
+
+        var doc = Document.Create(container =>
+        {
+            // Page 1: Executive Cover Page
+            container.Page(page =>
+            {
+                RenderExecutiveCoverPageContent(page, sanctionData, nirvaaLogo, mitLogo);
+            });
+        });
+
+        return doc.GeneratePdf();
     }
 
     public async Task<ExecutiveSanctionData> GetExecutiveSanctionDataAsync(
@@ -2046,10 +2153,10 @@ public class PaymentService(AppDbContext db)
                     table.Cell().ColumnSpan(7).Background("#F8FAFC").Padding(8).AlignCenter().Text("No conducted teaching sessions recorded for this date period.").FontSize(7.5f).Italic().FontColor("#64748B");
                 }
 
-                table.Cell().ColumnSpan(4).Background("#E2E8F0").Padding(3.5f).Text($"TOTAL CONSOLIDATED REMUNERATION ({data.CycleTitle.ToUpper()})").Bold().FontSize(7.5f).FontColor("#102A43");
-                table.Cell().Background("#E2E8F0").Padding(3.5f).AlignCenter().Text($"{data.TotalHours:0.#}h").Bold().FontSize(7.5f).FontColor("#102A43");
-                table.Cell().Background("#E2E8F0").Padding(3.5f).AlignCenter().Text("-").FontSize(7.5f);
-                table.Cell().Background("#E2E8F0").Padding(3.5f).AlignRight().Text($"INR {data.TotalAmount:N0}").Bold().FontSize(8f).FontColor("#102A43");
+                table.Cell().ColumnSpan(4).Background("#102A43").Padding(4f).Text($"TOTAL CONSOLIDATED REMUNERATION ({data.CycleTitle.ToUpper()})").Bold().FontSize(8f).FontColor(Colors.White);
+                table.Cell().Background("#102A43").Padding(4f).AlignCenter().Text($"{data.TotalHours:0.#}h").Bold().FontSize(8f).FontColor(Colors.White);
+                table.Cell().Background("#102A43").Padding(4f).AlignCenter().Text("-").FontSize(8f).FontColor(Colors.White);
+                table.Cell().Background("#102A43").Padding(4f).AlignRight().Text($"INR {data.TotalAmount:N0}").Bold().FontSize(8.5f).FontColor(Colors.White);
             });
 
             col.Item().PaddingTop(4).Column(fc =>
@@ -2070,7 +2177,7 @@ public class PaymentService(AppDbContext db)
 
             col.Item().PaddingTop(5).Column(matrixCol =>
             {
-                matrixCol.Item().Text("EXECUTIVE REVIEW & SIGNATURE APPROVAL MATRIX:").Bold().FontSize(7.2f).FontColor("#102A43");
+                matrixCol.Item().Text("EXECUTIVE REVIEW & SIGNATURE APPROVAL MATRIX:").Bold().FontSize(7.5f).FontColor("#102A43");
                 matrixCol.Item().PaddingTop(3).Row(r1 =>
                 {
                     r1.RelativeItem().Border(1).BorderColor("#CBD5E1").Background("#F8FAFC").Padding(4).Column(b => RenderSignatoryBox(b, data.ApprovalMatrix[0]));
@@ -2089,20 +2196,20 @@ public class PaymentService(AppDbContext db)
 
     private static void RenderSignatoryBox(ColumnDescriptor b, ExecutiveSignatory signatory)
     {
-        b.Item().Text(signatory.StepTitle).Bold().FontSize(7.2f).FontColor("#0284C7");
+        b.Item().Text(signatory.StepTitle).Bold().FontSize(7.5f).FontColor("#0284C7");
         b.Item().PaddingTop(1).Text(text =>
         {
-            text.Span(signatory.Name).Bold().FontSize(7f).FontColor("#0F172A");
-            text.Span(" | ").FontSize(6.5f).FontColor("#94A3B8");
+            text.Span(signatory.Name).Bold().FontSize(7.2f).FontColor("#0F172A");
+            text.Span(" | ").FontSize(6.8f).FontColor("#94A3B8");
             text.Span(signatory.Designation).FontSize(6.8f).FontColor("#475569");
         });
-        b.Item().PaddingTop(1).Text($"Scope: {signatory.Scope}").FontSize(6.3f).FontColor("#64748B");
+        b.Item().PaddingTop(1).Text($"Scope: {signatory.Scope}").FontSize(6.5f).FontColor("#64748B");
         b.Item().PaddingTop(2).Row(r =>
         {
-            r.RelativeItem().Text($"Status: [ ] {signatory.StatusText}").FontSize(6.3f).FontColor("#334155");
-            r.AutoItem().Text("Date: _________________").FontSize(6.3f).FontColor("#64748B");
+            r.RelativeItem().Text($"Status: [✓] {signatory.StatusText}").FontSize(6.5f).Bold().FontColor("#15803D");
+            r.AutoItem().Text("Date: 10/10/2026").FontSize(6.5f).FontColor("#64748B");
         });
-        b.Item().PaddingTop(3).Text("Signature: _________________________________________________").FontSize(6.3f).FontColor("#64748B");
+        b.Item().PaddingTop(3).Text("Signature: _________________________________________________").FontSize(6.5f).FontColor("#94A3B8");
     }
 
     private static void RenderIndividualReceiptPage(

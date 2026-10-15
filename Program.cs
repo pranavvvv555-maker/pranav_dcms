@@ -138,6 +138,13 @@ using (var scope = app.Services.CreateScope())
         var dossierAll8Pdf = paymentSvc.GenerateExecutiveSanctionDossierPdf(sanctionAll8, overview, app.Environment.WebRootPath);
         File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Dossier_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), dossierAll8Pdf);
 
+        var cover6Pdf = paymentSvc.GenerateSelected6ReceiptsCoverPagePdf(app.Environment.WebRootPath);
+        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Cover_Page_6_Faculties_04Sep_to_04Oct_2026.pdf"), cover6Pdf);
+        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Cover_Page_6_Receipts_04Sep_to_04Oct_2026.pdf"), cover6Pdf);
+
+        var dossier6Pdf = paymentSvc.GenerateSelected6FacultiesDossierPdf(app.Environment.WebRootPath);
+        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Dossier_6_Faculties_04Sep_to_04Oct_2026.pdf"), dossier6Pdf);
+
         Console.WriteLine("=== FULL BILLING AUDIT (04 SEP 2026 - 04 OCT 2026) ===");
         foreach (var f in overview)
         {
