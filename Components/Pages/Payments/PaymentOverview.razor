@@ -37,6 +37,9 @@
             <MudButton Variant="Variant.Filled" Color="Color.Warning" StartIcon="@Icons.Material.Filled.CallSplit" OnClick="DownloadRm5050Receipts" Style="font-weight:800;">
                 RM 50–50 Receipts (PDF)
             </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Tertiary" StartIcon="@Icons.Material.Filled.Calculate" OnClick="DownloadBirajdarReceipt" Style="font-weight:800;">
+                AM Receipt (Dr. Birajdar)
+            </MudButton>
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Receipt" OnClick="DownloadAllReceipts" Disabled="@(!_paymentOverview.Any())">
                 All Receipts (PDF)
             </MudButton>
@@ -307,6 +310,12 @@
                                             {
                                                 <span class="status-pill" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:0.68rem; font-weight:800; padding:1px 7px;">
                                                     50-50 RM Split
+                                                </span>
+                                            }
+                                            @if (context.Item.FacultyName.Contains("Birajdar", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <span class="status-pill" style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; font-size:0.68rem; font-weight:800; padding:1px 7px;">
+                                                    Advanced Mathematics (AM)
                                                 </span>
                                             }
                                         </div>
@@ -1324,6 +1333,37 @@
         catch (Exception ex)
         {
             Snackbar.Add($"RM Receipt generation failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task DownloadBirajdarReceipt()
+    {
+        try
+        {
+            var birajdar = _paymentOverview.FirstOrDefault(f => f.FacultyName.Contains("Birajdar", StringComparison.OrdinalIgnoreCase));
+            if (birajdar != null)
+            {
+                await DownloadSingleReceipt(birajdar);
+            }
+            else
+            {
+                var staticPath = Path.Combine(HostEnv.WebRootPath, "receipts", "Dr_Ganesh_Birajdar_AM_Receipt_04Sep_to_04Oct_2026.pdf");
+                if (File.Exists(staticPath))
+                {
+                    var bytes = await File.ReadAllBytesAsync(staticPath);
+                    var base64 = Convert.ToBase64String(bytes);
+                    await JS.InvokeVoidAsync("downloadFileFromBase64", "Payment_Receipt_Dr_Ganesh_Birajdar_AM_04Sep_to_04Oct_2026.pdf", "application/pdf", base64);
+                    Snackbar.Add("Downloaded Dr. Ganesh Birajdar Advanced Mathematics Remuneration Receipt (₹15,600).", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("Dr. Ganesh Birajdar record not found in active period.", Severity.Warning);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Download failed: {ex.Message}", Severity.Error);
         }
     }
 

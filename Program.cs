@@ -97,9 +97,10 @@ using (var scope = app.Services.CreateScope())
     var receiptsDir = Path.Combine(app.Environment.WebRootPath, "receipts");
     paymentSvc.ExportRm5050ReceiptsToDirectory(receiptsDir, app.Environment.WebRootPath);
 
-    if (args.Contains("--export-rm-pdf"))
+    List<FacultyPaymentOverview>? overview = null;
+    try
     {
-        var overview = await paymentSvc.GetFacultyPaymentOverviewAsync(
+        overview = await paymentSvc.GetFacultyPaymentOverviewAsync(
             new DateTime(2026, 10, 1),
             new DateTime(2026, 10, 4),
             new DateTime(2026, 9, 4),
@@ -144,8 +145,14 @@ using (var scope = app.Services.CreateScope())
 
         var dossier6Pdf = paymentSvc.GenerateSelected6FacultiesDossierPdf(app.Environment.WebRootPath);
         File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Dossier_6_Faculties_04Sep_to_04Oct_2026.pdf"), dossier6Pdf);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Startup] PDF pre-export: {ex.Message}");
+    }
 
-        Console.WriteLine("=== FULL BILLING AUDIT (04 SEP 2026 - 04 OCT 2026) ===");
+    if (args.Contains("--export-rm-pdf") && overview != null)
+    {
         foreach (var f in overview)
         {
             Console.WriteLine($"{f.FacultyName,-30} | Lec: {f.MonthlyLectureCount,5:0.#} | Prac: {f.MonthlyPracticalCount,5:0.#} | Payable: INR {f.MonthlyPayableAmount,8:N0}");

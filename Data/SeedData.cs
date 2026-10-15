@@ -10,6 +10,7 @@ public static class SeedData
     {
         if (await db.Faculties.AnyAsync())
         {
+            await EnsureCoreFacultiesAndCoursesAsync(db);
             await EnsureSemester1ActiveFacultiesOnlyAsync(db);
             // Existing installations keep any customised fees. Professors who
             // have not yet had a fee configured receive the standard amount.
@@ -93,6 +94,111 @@ public static class SeedData
         await EnsureSeptemberOctober2026SessionsAsync(db);
         await EnsureScheduledSessionsPromotedAsync(db);
         await EnsureSemester1ActiveFacultiesOnlyAsync(db);
+    }
+
+    private static async Task EnsureCoreFacultiesAndCoursesAsync(AppDbContext db)
+    {
+        // 1. Ensure Semester I exists
+        var sem1 = await db.Semesters.FirstOrDefaultAsync(s => s.IsActive) ?? await db.Semesters.FirstOrDefaultAsync();
+        if (sem1 == null)
+        {
+            sem1 = new Semester
+            {
+                Name = "Semester I",
+                AcademicYear = "2026-27",
+                StartDate = new DateTime(2026, 8, 21),
+                EndDate = new DateTime(2027, 1, 31),
+                IsActive = true
+            };
+            db.Semesters.Add(sem1);
+            await db.SaveChangesAsync();
+        }
+
+        // 2. Ensure Core Sem-I Courses exist
+        var requiredCourses = new (string Code, string Name, string Type, int Credits, int L, int T, int P, int Prj, string Scheme)[]
+        {
+            ("MEC50010", "Advanced Mathematics", "PM", 4, 3, 1, 0, 0, "TT1"),
+            ("MEC51050", "Research Methodology for Engineers", "PM", 4, 3, 1, 0, 0, "TT1"),
+            ("CDS40010", "Advance Data Centre and Cloud Infrastructure Engineering", "PM", 4, 3, 0, 2, 0, "TL3"),
+            ("CDS40020", "Advanced Cloud Computing & Data Storage System", "PM", 4, 3, 0, 2, 0, "TL3"),
+            ("CDS40030", "Project Lab-I", "PR", 2, 0, 0, 0, 4, "PJ"),
+            ("PCE10040", "Scientific Studies of Mind, Matter, Spirit and Consciousness", "UC", 2, 2, 0, 0, 0, "UP"),
+            ("YOG10030", "Yoga", "UC", 1, 0, 0, 2, 0, "-"),
+            ("ESD10010", "Employment Skill Development", "UC", 1, 1, 0, 0, 0, "-"),
+        };
+
+        bool coursesChanged = false;
+        foreach (var rc in requiredCourses)
+        {
+            var exists = await db.Courses.AnyAsync(c => c.CourseCode == rc.Code);
+            if (!exists)
+            {
+                db.Courses.Add(new Course
+                {
+                    CourseCode = rc.Code,
+                    CourseName = rc.Name,
+                    CourseType = rc.Type,
+                    Credits = rc.Credits,
+                    LectureHours = rc.L,
+                    TutorialHours = rc.T,
+                    PracticalHours = rc.P,
+                    ProjectHours = rc.Prj,
+                    AssessmentScheme = rc.Scheme,
+                    SemesterId = sem1.Id
+                });
+                coursesChanged = true;
+            }
+        }
+        if (coursesChanged)
+        {
+            await db.SaveChangesAsync();
+        }
+
+        // 3. Ensure Dr. Ganesh Birajdar (Advanced Mathematics) exists in Faculties
+        var birajdar = await db.Faculties.FirstOrDefaultAsync(f => f.FullName.Contains("Birajdar"));
+        if (birajdar == null)
+        {
+            birajdar = new Faculty
+            {
+                FullName = "Dr. Ganesh Birajdar",
+                Designation = "Professor",
+                Qualification = "Ph.D",
+                Domain = "Mathematics",
+                Role = "Teaching",
+                Organization = "MIT-WPU",
+                IsActive = true
+            };
+            db.Faculties.Add(birajdar);
+            await db.SaveChangesAsync();
+        }
+        else
+        {
+            bool facultyUpdated = false;
+            if (!birajdar.IsActive) { birajdar.IsActive = true; facultyUpdated = true; }
+            if (birajdar.Organization != "MIT-WPU") { birajdar.Organization = "MIT-WPU"; facultyUpdated = true; }
+            if (string.IsNullOrWhiteSpace(birajdar.Domain)) { birajdar.Domain = "Mathematics"; facultyUpdated = true; }
+            if (string.IsNullOrWhiteSpace(birajdar.Designation)) { birajdar.Designation = "Professor"; facultyUpdated = true; }
+            if (facultyUpdated)
+            {
+                await db.SaveChangesAsync();
+            }
+        }
+
+        // 4. Ensure standard faculty remuneration rates for Dr. Ganesh Birajdar
+        var hasBirajdarRate = await db.FacultyRates.AnyAsync(r => r.FacultyId == birajdar.Id);
+        if (!hasBirajdarRate)
+        {
+            db.FacultyRates.Add(new FacultyRate
+            {
+                FacultyId = birajdar.Id,
+                HourlyRateINR = FacultyService.DefaultClassRateINR,
+                LectureRateINR = FacultyService.DefaultClassRateINR,
+                PracticalRateINR = FacultyService.DefaultClassRateINR,
+                EffectiveFrom = new DateTime(2026, 8, 1),
+                Notes = "Standard class fee (Advanced Mathematics)"
+            });
+            await db.SaveChangesAsync();
+        }
     }
 
     private static async Task EnsureAssessmentsAsync(AppDbContext db)
