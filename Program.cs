@@ -111,7 +111,12 @@ using (var scope = app.Services.CreateScope())
             new DateTime(2026, 9, 4),
             new DateTime(2026, 10, 4),
             app.Environment.WebRootPath);
-        File.WriteAllBytes(Path.Combine(receiptsDir, "All_8_Faculty_Receipts_04Sep_to_04Oct_2026.pdf"), allReceiptsPdf);
+        static void SafeWrite(string path, byte[] bytes)
+        {
+            try { File.WriteAllBytes(path, bytes); } catch { }
+        }
+
+        SafeWrite(Path.Combine(receiptsDir, "All_8_Faculty_Receipts_04Sep_to_04Oct_2026.pdf"), allReceiptsPdf);
 
         var birajdarOverview = overview.FirstOrDefault(f => f.FacultyName.Contains("Birajdar", StringComparison.OrdinalIgnoreCase));
         if (birajdarOverview != null)
@@ -121,7 +126,7 @@ using (var scope = app.Services.CreateScope())
                 new DateTime(2026, 9, 4),
                 new DateTime(2026, 10, 4),
                 app.Environment.WebRootPath);
-            File.WriteAllBytes(Path.Combine(receiptsDir, "Dr_Ganesh_Birajdar_AM_Receipt_04Sep_to_04Oct_2026.pdf"), birajdarPdf);
+            SafeWrite(Path.Combine(receiptsDir, "Dr_Ganesh_Birajdar_AM_Receipt_04Sep_to_04Oct_2026.pdf"), birajdarPdf);
         }
 
         var sanctionAll8 = await paymentSvc.GetExecutiveSanctionDataAsync(
@@ -134,17 +139,17 @@ using (var scope = app.Services.CreateScope())
             "Audited & Recommended");
 
         var coverAll8Pdf = paymentSvc.GenerateExecutiveSanctionCoverPagePdf(sanctionAll8, app.Environment.WebRootPath);
-        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Cover_Page_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), coverAll8Pdf);
+        SafeWrite(Path.Combine(receiptsDir, "Executive_Cover_Page_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), coverAll8Pdf);
 
         var dossierAll8Pdf = paymentSvc.GenerateExecutiveSanctionDossierPdf(sanctionAll8, overview, app.Environment.WebRootPath);
-        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Dossier_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), dossierAll8Pdf);
+        SafeWrite(Path.Combine(receiptsDir, "Executive_Dossier_All_8_Faculties_04Sep_to_04Oct_2026.pdf"), dossierAll8Pdf);
 
         var cover6Pdf = paymentSvc.GenerateSelected6ReceiptsCoverPagePdf(app.Environment.WebRootPath);
-        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Cover_Page_6_Faculties_04Sep_to_04Oct_2026.pdf"), cover6Pdf);
-        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Cover_Page_6_Receipts_04Sep_to_04Oct_2026.pdf"), cover6Pdf);
+        SafeWrite(Path.Combine(receiptsDir, "Executive_Cover_Page_6_Faculties_04Sep_to_04Oct_2026.pdf"), cover6Pdf);
+        SafeWrite(Path.Combine(receiptsDir, "Executive_Cover_Page_6_Receipts_04Sep_to_04Oct_2026.pdf"), cover6Pdf);
 
         var dossier6Pdf = paymentSvc.GenerateSelected6FacultiesDossierPdf(app.Environment.WebRootPath);
-        File.WriteAllBytes(Path.Combine(receiptsDir, "Executive_Dossier_6_Faculties_04Sep_to_04Oct_2026.pdf"), dossier6Pdf);
+        SafeWrite(Path.Combine(receiptsDir, "Executive_Dossier_6_Faculties_04Sep_to_04Oct_2026.pdf"), dossier6Pdf);
     }
     catch (Exception ex)
     {
